@@ -4,6 +4,7 @@ import { ViewState } from './types';
 import { FIRM_NAME } from './constants';
 import Menu from './components/Menu';
 import Footer from './components/Footer';
+import OfferPopup from './components/OfferPopup';
 import Home from './views/Home';
 import About from './views/About';
 import Projects from './views/Projects';
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(getInitialView());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false); // Controls Header/Footer color
+  const [isOfferPopupOpen, setIsOfferPopupOpen] = useState(false);
 
   // Smart Header Logic
   const [showHeader, setShowHeader] = useState(true);
@@ -42,6 +44,18 @@ const App: React.FC = () => {
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Show offer popup after 3 seconds on first visit
+  useEffect(() => {
+    const hasSeenOffer = sessionStorage.getItem('hasSeenOffer');
+    if (!hasSeenOffer) {
+      const timer = setTimeout(() => {
+        setIsOfferPopupOpen(true);
+        sessionStorage.setItem('hasSeenOffer', 'true');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   useEffect(() => {
@@ -135,6 +149,12 @@ const App: React.FC = () => {
             // Ensure header shows immediately on nav
             setShowHeader(true);
         }}
+      />
+
+      {/* Offer Popup */}
+      <OfferPopup 
+        isOpen={isOfferPopupOpen}
+        onClose={() => setIsOfferPopupOpen(false)}
       />
     </div>
   );
