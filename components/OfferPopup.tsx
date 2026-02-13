@@ -23,6 +23,8 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.fullName && formData.email && formData.phone) {
+      // Save form submission to localStorage
+      localStorage.setItem('offerFormSubmitted', 'true');
       setSubmitted(true);
       setTimeout(() => {
         onClose();
@@ -32,6 +34,13 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleClose = () => {
+    // Track how many times user closed without submitting
+    const closeCount = parseInt(localStorage.getItem('offerCloseCount') || '0');
+    localStorage.setItem('offerCloseCount', String(closeCount + 1));
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -39,7 +48,7 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
       <div className="w-full max-w-md mx-4 bg-white rounded-lg shadow-2xl p-8 md:p-10 animate-fade-in-up relative">
         {/* Close Button */}
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
           <X size={24} strokeWidth={1.5} />

@@ -46,15 +46,16 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Show offer popup after 3 seconds on first visit
+  // Show offer popup logic
   useEffect(() => {
-    const hasSeenOffer = sessionStorage.getItem('hasSeenOffer');
-    if (!hasSeenOffer) {
-      const timer = setTimeout(() => {
-        setIsOfferPopupOpen(true);
-        sessionStorage.setItem('hasSeenOffer', 'true');
-      }, 3000);
-      return () => clearTimeout(timer);
+    const hasSubmitted = localStorage.getItem('offerFormSubmitted');
+    const closeCount = parseInt(localStorage.getItem('offerCloseCount') || '0');
+    
+    // Show popup if:
+    // 1. User hasn't submitted the form AND
+    // 2. They've closed it less than 2 times (show max 2 times)
+    if (!hasSubmitted && closeCount < 2) {
+      setIsOfferPopupOpen(true);
     }
   }, []);
 
@@ -117,7 +118,10 @@ const App: React.FC = () => {
         </h1>
         
         <button 
-          onClick={() => setIsMenuOpen(true)}
+          onClick={() => {
+            setIsMenuOpen(true);
+            setIsOfferPopupOpen(false); // Close popup when opening menu
+          }}
           className="p-2 hover:opacity-70 transition-opacity z-50 pointer-events-auto"
         >
           <MenuIcon size={28} strokeWidth={1.5} />
@@ -153,7 +157,7 @@ const App: React.FC = () => {
 
       {/* Offer Popup */}
       <OfferPopup 
-        isOpen={isOfferPopupOpen}
+        isOpen={isOfferPopupOpen && !isMenuOpen}
         onClose={() => setIsOfferPopupOpen(false)}
       />
     </div>
