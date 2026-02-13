@@ -159,7 +159,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       </div>
 
       {/* 3. Our Process */}
-      <div className="w-full py-24 px-6 md:px-12 lg:px-24 mb-32">
+      <div className="w-full py-24 px-6 md:px-12 lg:px-24 mb-32 hidden">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16 text-center">
             <h2 className="text-3xl md:text-4xl font-serif-display mb-4">Our Process</h2>
@@ -275,7 +275,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center gap-4 mb-16">
             <div className="h-px flex-1 bg-gray-200"></div>
-            <p className="text-xs font-bold tracking-[0.3em] uppercase text-gray-400 whitespace-nowrap">Trusted by leading names</p>
+            <p className="text-xl md:text-2xl font-bold tracking-[0.3em] uppercase text-black whitespace-nowrap">Trusted by leading names</p>
             <div className="h-px flex-1 bg-gray-200"></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-y-10 gap-x-6 md:gap-x-16">
