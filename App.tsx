@@ -10,13 +10,39 @@ import Projects from './views/Projects';
 import Contact from './views/Contact';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('HOME');
+  // Initialize from URL hash
+  const getInitialView = (): ViewState => {
+    const hash = window.location.hash.slice(1).toUpperCase();
+    const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT'];
+    return validViews.includes(hash as ViewState) ? (hash as ViewState) : 'HOME';
+  };
+
+  const [currentView, setCurrentView] = useState<ViewState>(getInitialView());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false); // Controls Header/Footer color
 
   // Smart Header Logic
   const [showHeader, setShowHeader] = useState(true);
   const lastScrollY = useRef(0);
+
+  // Update URL when view changes
+  useEffect(() => {
+    window.location.hash = currentView.toLowerCase();
+    window.scrollTo(0, 0); // Scroll to top on page change
+  }, [currentView]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1).toUpperCase();
+      const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT'];
+      if (validViews.includes(hash as ViewState)) {
+        setCurrentView(hash as ViewState);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
