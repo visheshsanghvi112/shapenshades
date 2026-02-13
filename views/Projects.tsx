@@ -5,12 +5,39 @@ import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 
 const CATEGORIES = ['SHOW ALL', 'VILLAS', 'LUXE INTERIORS', 'ARCHITECTURE (R)', 'ARCHITECTURE (C)', 'CLUB HOUSES', 'EXPERIENCE CENTERS', 'WORKSPACES'];
 
+const HEADER_QUOTES = [
+  { text: "Committed to delivering", highlight: "'bespoke and contemporary'", suffix: "projects of the highest standard." },
+  { text: "Where", highlight: "'form meets function'", suffix: "in every space we create." },
+  { text: "Designing spaces that", highlight: "'inspire and endure'", suffix: "for generations to come." },
+  { text: "Crafting environments with", highlight: "'precision and soul'", suffix: "at every scale." },
+  { text: "Transforming visions into", highlight: "'timeless realities'", suffix: "one detail at a time." },
+  { text: "Architecture rooted in", highlight: "'purpose and elegance'", suffix: "that speaks for itself." },
+  { text: "Every project is a", highlight: "'dialogue between light and space'", suffix: "shaped with intent." },
+  { text: "We believe in", highlight: "'thoughtful design'", suffix: "that balances beauty with practicality." },
+  { text: "Shaping the future through", highlight: "'innovative design thinking'", suffix: "and meticulous execution." },
+  { text: "Building legacies with", highlight: "'creative integrity'", suffix: "and lasting impact." },
+];
+
 // Fallback image in case Unsplash links expire or fail
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000';
 
 const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [activeFilter, setActiveFilter] = useState('SHOW ALL');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [quoteFading, setQuoteFading] = useState(false);
+
+  // Rotate quotes every 5 seconds with fade
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteFading(true);
+      setTimeout(() => {
+        setQuoteIndex(prev => (prev + 1) % HEADER_QUOTES.length);
+        setQuoteFading(false);
+      }, 500);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // When selectedProject changes, update the dark mode state
   useEffect(() => {
@@ -142,8 +169,8 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       
       {/* Header Section */}
       <div className="px-6 md:px-12 lg:px-24 text-center mb-16 animate-fade-in">
-        <h2 className="text-2xl md:text-4xl lg:text-5xl font-serif-display text-gray-900 leading-tight mb-8">
-          Committed to delivering <span className="font-bold italic">'bespoke and contemporary'</span><br className="hidden md:block"/> projects of the highest standard.
+        <h2 className={`text-2xl md:text-4xl lg:text-5xl font-serif-display text-gray-900 leading-tight mb-8 transition-opacity duration-500 ${quoteFading ? 'opacity-0' : 'opacity-100'}`}>
+          {HEADER_QUOTES[quoteIndex].text} <span className="font-bold italic">{HEADER_QUOTES[quoteIndex].highlight}</span><br className="hidden md:block"/> {HEADER_QUOTES[quoteIndex].suffix}
         </h2>
         
         {/* Filter Scrollable Area */}

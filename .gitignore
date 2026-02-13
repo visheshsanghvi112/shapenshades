@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated images in root (not project assets)
+Gemini_Generated_Image_*
+
+# Large video files
+*.MOV
+*.mov
+*.mp4
+*.MP4
