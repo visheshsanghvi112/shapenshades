@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HERO_SLIDES, HERO_VIDEOS } from '../constants';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ViewProps } from '../types';
+
+// Preload all hero images on module load so they're cached before first render
+const preloadedImages: HTMLImageElement[] = [];
+HERO_SLIDES.forEach(slide => {
+  const img = new Image();
+  img.src = slide.imageUrl;
+  preloadedImages.push(img);
+});
 
 const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -16,9 +24,6 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const activeSlide = slides[currentSlide];
 
   useEffect(() => {
-    // Keep header text black for contrast unless explicitly needed otherwise, 
-    // but our image overlay is dark so white text on image works well.
-    // The header itself can remain black or switch based on preference.
     setIsDarkMode(false);
     const timer = setTimeout(() => setIsLoaded(true), 800);
     return () => clearTimeout(timer);
@@ -69,8 +74,11 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
            <div className="absolute inset-0 w-full h-full animate-fade-in">
              <img 
                src={activeSlide.url} 
-               alt="Hero Slide" 
+               alt="Shapes & Shades — Architecture & Interior Design" 
                className="w-full h-full object-cover"
+               loading="eager"
+               decoding="async"
+               fetchPriority="high"
              />
              {/* Dark overlay to ensure White text is readable */}
              <div className="absolute inset-0 bg-black/30" />

@@ -180,23 +180,22 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 alt={project.title}
                 className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
               />
-              {/* Overlay: darkened on hover */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-500" />
+              {/* Overlay: subtle bottom gradient always, darker on hover */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent group-hover:from-black/70 transition-colors duration-500" />
               
               {/* Content Container */}
               <div className="absolute bottom-0 left-0 w-full p-8 text-white">
-                <div className="overflow-hidden">
-                    {/* Title slides up slightly on hover */}
-                    <h3 className="text-2xl font-bold uppercase tracking-wider mb-2 drop-shadow-md transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                        {project.title}
-                    </h3>
-                </div>
+                {/* Title: always visible, nudges up on hover */}
+                <h3 className="text-2xl font-bold uppercase tracking-wider mb-1 drop-shadow-lg">
+                    {project.title}
+                </h3>
+                {/* Location: always visible at reduced opacity, full on hover */}
+                <p className="text-sm font-light tracking-wide drop-shadow-md uppercase opacity-70 group-hover:opacity-100 transition-opacity duration-500">
+                    {project.location}
+                </p>
                 
-                {/* Secondary details fade in on hover */}
-                <div className="flex justify-between items-end opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100">
-                    <p className="text-sm font-light tracking-wide drop-shadow-md uppercase border-t border-white/50 pt-2 inline-block">
-                        {project.location}
-                    </p>
+                {/* Arrow fades in on hover */}
+                <div className="flex justify-end opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 mt-2">
                     <ArrowUpRight className="text-white w-6 h-6" />
                 </div>
               </div>

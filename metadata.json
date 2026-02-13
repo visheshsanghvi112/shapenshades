@@ -1,5 +1,7 @@
 {
   "name": "Shapes & Shades",
-  "description": "Minimalist interior design portfolio for Shapes & Shades architecture firm.",
+  "description": "Full-service architecture, interior design, and construction consulting firm. Crafting elegant, functional spaces — from luxury villas to modern workspaces. Founded in 2019 by Architects Sohan Suthar and Sumit Kalle.",
+  "author": "Vishesh Sanghvi",
+  "url": "https://shapesandshades.com",
   "requestFramePermissions": []
 }

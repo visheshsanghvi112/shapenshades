@@ -19,11 +19,11 @@ export const ABOUT_TEXT = [
 
 // Helper to generate gallery images (mocking with random Unsplash arch/interior images)
 const GALLERY_MOCK = [
-  'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2000',
-  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000',
-  'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?q=80&w=2000',
-  'https://images.unsplash.com/photo-1600210492493-0946911123ea?q=80&w=2000',
-  'https://images.unsplash.com/photo-1600607687644-c7171b42498f?q=80&w=2000'
+  'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1280&q=75&auto=format&fit=crop&fm=webp',
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1280&q=75&auto=format&fit=crop&fm=webp',
+  'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=1280&q=75&auto=format&fit=crop&fm=webp',
+  'https://images.unsplash.com/photo-1600210492493-0946911123ea?w=1280&q=75&auto=format&fit=crop&fm=webp',
+  'https://images.unsplash.com/photo-1600607687644-c7171b42498f?w=1280&q=75&auto=format&fit=crop&fm=webp'
 ];
 
 export const PROJECTS: Project[] = [
@@ -32,7 +32,7 @@ export const PROJECTS: Project[] = [
     title: 'JREDDY VILLA',
     location: 'Hyderabad',
     category: 'Villas',
-    imageUrl: 'https://images.unsplash.com/photo-1600607686527-6fb886090705?q=80&w=2000&auto=format&fit=crop', // Fixed URL
+    imageUrl: 'https://images.unsplash.com/photo-1600607686527-6fb886090705?w=800&q=75&auto=format&fit=crop&fm=webp',
     gallery: GALLERY_MOCK
   },
   {
@@ -40,7 +40,7 @@ export const PROJECTS: Project[] = [
     title: 'CIVIL LINES VILLA',
     location: 'Jaipur',
     category: 'Villas',
-    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2000&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=75&auto=format&fit=crop&fm=webp',
     gallery: GALLERY_MOCK
   },
   {
@@ -48,7 +48,7 @@ export const PROJECTS: Project[] = [
     title: 'SKYLINE PENTHOUSE',
     location: 'Mumbai',
     category: 'Luxe Interiors',
-    imageUrl: 'https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?q=80&w=2000&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?w=800&q=75&auto=format&fit=crop&fm=webp',
     gallery: GALLERY_MOCK
   },
   {
@@ -56,7 +56,7 @@ export const PROJECTS: Project[] = [
     title: 'AURORA WORKSPACE',
     location: 'Bangalore',
     category: 'Workspaces',
-    imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2000&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=75&auto=format&fit=crop&fm=webp',
     gallery: GALLERY_MOCK
   },
   {
@@ -64,7 +64,7 @@ export const PROJECTS: Project[] = [
     title: 'ZENITH CLUB HOUSE',
     location: 'Pune',
     category: 'Club Houses',
-    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2000&auto=format&fit=crop', // Fixed URL
+    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=75&auto=format&fit=crop&fm=webp',
     gallery: GALLERY_MOCK
   },
   {
@@ -72,7 +72,7 @@ export const PROJECTS: Project[] = [
     title: 'OPUS EXPERIENCE',
     location: 'Delhi',
     category: 'Experience Centers',
-    imageUrl: 'https://images.unsplash.com/photo-1577412647305-991150c7d163?q=80&w=2000&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1577412647305-991150c7d163?w=800&q=75&auto=format&fit=crop&fm=webp',
     gallery: GALLERY_MOCK
   }
 ];
@@ -80,12 +80,12 @@ export const PROJECTS: Project[] = [
 export const HERO_SLIDES = [
   {
     id: 1,
-    imageUrl: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?q=80&w=2000&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=1280&q=75&auto=format&fit=crop&fm=webp',
     tagline: "We focus on quality, and excellent 'design service', as being the cornerstone of our practice."
   },
   {
     id: 2,
-    imageUrl: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=2000&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1280&q=75&auto=format&fit=crop&fm=webp',
     tagline: "Shaping spaces, defining shades, and creating environments that inspire."
   }
 ];
