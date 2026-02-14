@@ -7,6 +7,7 @@ import Menu from './components/Menu';
 import Footer from './components/Footer';
 import OfferPopup from './components/OfferPopup';
 import CookieConsent from './components/CookieConsent';
+import Chatbot from './components/Chatbot';
 import Home from './views/Home';
 import About from './views/About';
 import Projects from './views/Projects';
@@ -172,6 +173,9 @@ const App: React.FC = () => {
 
       {/* Cookie Consent */}
       <CookieConsent />
+
+      {/* Chatbot */}
+      <Chatbot />
     </div>
   );
 };
