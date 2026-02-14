@@ -1,11 +1,42 @@
-import React, { useEffect } from 'react';
-import { ArrowRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { ViewProps } from '../types';
+import { db } from '../src/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { trackContactSubmission } from '../src/analytics';
 
 const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
   useEffect(() => {
     setIsDarkMode(false);
   }, [setIsDarkMode]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email) return;
+    setStatus('sending');
+    try {
+      await addDoc(collection(db, 'contactSubmissions'), {
+        ...formData,
+        createdAt: serverTimestamp(),
+        source: 'contact_page',
+      });
+      trackContactSubmission();
+      setStatus('sent');
+      setFormData({ name: '', email: '', phone: '', message: '' });
+      setTimeout(() => setStatus('idle'), 4000);
+    } catch (err) {
+      console.error('[Contact] Firestore write failed', err);
+      setStatus('error');
+      setTimeout(() => setStatus('idle'), 4000);
+    }
+  };
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col pt-32 px-6 md:px-12 lg:px-24 pb-20">
@@ -54,10 +85,13 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
         {/* Minimal Form */}
         <div className="bg-[#fcfcfc] p-8 md:p-12 border border-gray-100">
-          <form className="space-y-10" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-10" onSubmit={handleSubmit}>
             <div className="relative group">
               <input 
                 type="text" 
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
                 required
                 className="w-full bg-transparent border-b border-gray-300 py-3 text-lg outline-none focus:border-black transition-all" 
                 placeholder=" "
@@ -70,6 +104,9 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             <div className="relative group">
               <input 
                 type="email" 
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
                 required
                 className="w-full bg-transparent border-b border-gray-300 py-3 text-lg outline-none focus:border-black transition-all" 
                 placeholder=" "
@@ -82,6 +119,9 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             <div className="relative group">
               <input 
                 type="tel" 
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
                 className="w-full bg-transparent border-b border-gray-300 py-3 text-lg outline-none focus:border-black transition-all" 
                 placeholder=" "
               />
@@ -92,6 +132,9 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
             <div className="relative group pt-4">
               <textarea 
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
                 rows={3} 
                 className="w-full bg-transparent border-b border-gray-300 py-3 text-lg outline-none focus:border-black transition-all resize-none" 
                 placeholder=" "
@@ -101,9 +144,27 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               </label>
             </div>
 
-            <button className="group flex items-center justify-between w-full bg-black text-white py-5 px-6 text-sm font-bold tracking-[0.2em] uppercase hover:bg-gray-800 transition-all mt-8">
-              <span>Send Message</span>
-              <ArrowRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" />
+            {status === 'sent' && (
+              <div className="flex items-center gap-2 text-green-600 text-sm">
+                <CheckCircle className="w-4 h-4" />
+                <span>Message sent! We'll get back to you soon.</span>
+              </div>
+            )}
+            {status === 'error' && (
+              <p className="text-red-500 text-sm">Something went wrong. Please try again or email us directly.</p>
+            )}
+
+            <button 
+              type="submit"
+              disabled={status === 'sending'}
+              className="group flex items-center justify-between w-full bg-black text-white py-5 px-6 text-sm font-bold tracking-[0.2em] uppercase hover:bg-gray-800 transition-all mt-8 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <span>{status === 'sending' ? 'Sending...' : status === 'sent' ? 'Sent!' : 'Send Message'}</span>
+              {status === 'sending' ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ArrowRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" />
+              )}
             </button>
           </form>
         </div>

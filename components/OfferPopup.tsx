@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Loader2 } from 'lucide-react';
+import { db } from '../src/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { trackOfferSubmission } from '../src/analytics';
 
 interface OfferPopupProps {
   isOpen: boolean;
@@ -14,16 +17,28 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.fullName && formData.email && formData.phone) {
-      // Save form submission to localStorage
+    if (!formData.fullName || !formData.email || !formData.phone) return;
+    setSubmitting(true);
+    setSubmitError(false);
+    try {
+      await addDoc(collection(db, 'offerSubmissions'), {
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        createdAt: serverTimestamp(),
+        source: 'offer_popup',
+      });
+      trackOfferSubmission();
       localStorage.setItem('offerFormSubmitted', 'true');
       setSubmitted(true);
       setTimeout(() => {
@@ -31,6 +46,11 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
         setSubmitted(false);
         setFormData({ fullName: '', email: '', phone: '' });
       }, 2000);
+    } catch (err) {
+      console.error('[OfferPopup] Firestore write failed', err);
+      setSubmitError(true);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -110,12 +130,21 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
                 />
               </div>
 
+              {submitError && (
+                <p className="text-red-500 text-xs">Something went wrong. Please try again.</p>
+              )}
+
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full bg-black text-white py-3 rounded font-bold tracking-widest uppercase text-xs hover:bg-gray-800 transition-colors mt-6"
+                disabled={submitting}
+                className="w-full bg-black text-white py-3 rounded font-bold tracking-widest uppercase text-xs hover:bg-gray-800 transition-colors mt-6 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Claim Free Session
+                {submitting ? (
+                  <><Loader2 size={16} className="animate-spin" /> Submitting...</>
+                ) : (
+                  'Claim Free Session'
+                )}
               </button>
             </form>
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { initAnalytics } from '../src/firebase';
+import { initAnalytics, db } from '../src/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const COOKIE_CONSENT_KEY = 'shapes_shades_cookie_consent';
 
@@ -32,11 +33,24 @@ const CookieConsent: React.FC = () => {
     }
   }, []);
 
+  const logConsentToFirestore = async (accepted: boolean) => {
+    try {
+      await addDoc(collection(db, 'cookieConsents'), {
+        analytics: accepted,
+        userAgent: navigator.userAgent,
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn('[CookieConsent] Firestore log failed', err);
+    }
+  };
+
   const handleAccept = () => {
     const status: CookieConsentStatus = { analytics: true, timestamp: Date.now() };
     window.localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(status));
     setConsent(status);
     initAnalytics();
+    logConsentToFirestore(true);
     setShow(false);
   };
 
@@ -44,6 +58,7 @@ const CookieConsent: React.FC = () => {
     const status: CookieConsentStatus = { analytics: false, timestamp: Date.now() };
     window.localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(status));
     setConsent(status);
+    logConsentToFirestore(false);
     setShow(false);
   };
 
