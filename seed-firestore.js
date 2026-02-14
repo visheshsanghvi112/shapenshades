@@ -1,38 +1,25 @@
-import { Project } from './types';
+/**
+ * Seed Firestore with default projects from constants.ts
+ * Run: node seed-firestore.js
+ */
 
-export const FIRM_NAME = "SHAPES & SHADES";
-export const FOUNDED_YEAR = 2019;
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-// Array of video backgrounds for the Home carousel
-export const HERO_VIDEOS = [
-  "https://videos.pexels.com/video-files/7578544/7578544-uhd_3840_2160_30fps.mp4" // Aesthetic Interior (Beige tones)
-];
+const firebaseConfig = {
+  apiKey: "AIzaSyBSULRps4GYC8XRi-tqKUMhYzfWPe9VNFc",
+  authDomain: "shapenshades-74d41.firebaseapp.com",
+  projectId: "shapenshades-74d41",
+  storageBucket: "shapenshades-74d41.firebasestorage.app",
+  messagingSenderId: "1025632982903",
+  appId: "1:1025632982903:web:ba6ba67575316b3cae3372",
+  measurementId: "G-QY0X7QKVYE"
+};
 
-export const ABOUT_TEXT = [
-  "Founded on 9th September 2019 by Architect Sohan Suthar, Shapes & Shades is a full-service design and consulting firm rooted in thoughtful design, technical precision, and timeless aesthetics.",
-  "We specialize in architecture, interior design, and construction administration, offering truly end-to-end solutions—from concept development and detailed design to execution support and on-site coordination. Every project is approached as a unique story, where form, function, and feeling come together seamlessly.",
-  "At Shapes & Shades, we believe great design is not just seen—it is experienced. Our process is collaborative, detail-driven, and client-centric, ensuring that each space reflects purpose, personality, and long-term value. Whether it’s a residence, commercial space, or large-scale development, we balance creativity with practicality to deliver spaces that are elegant, efficient, and enduring.",
-  "With a strong foundation in design excellence and construction understanding, we transform ideas into well-crafted realities—shaping spaces, defining shades, and creating environments that inspire."
-];
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-// Project gallery images from real shoots (max 6 per project, no repeats)
-const GALLERY_MATUNGA = [
-  '/matunga/A1.jpg', '/matunga/A3.jpg', '/matunga/A4.jpg',
-  '/matunga/A6.jpg', '/matunga/b1.jpg', '/matunga/b2.jpg'
-];
-
-const GALLERY_JUHU = [
-  '/juhu/IMG_6998.JPG', '/juhu/IMG_6999.JPG', '/juhu/IMG_7001.JPG',
-  '/juhu/IMG_7005.JPG', '/juhu/IMG_7007.JPG', '/juhu/IMG_7010.JPG'
-];
-
-const GALLERY_BANDRA = [
-  '/bandra/IMG_7699.JPG', '/bandra/IMG_7701.JPG', '/bandra/IMG_7706.JPG',
-  '/bandra/IMG_7709.JPG', '/bandra/IMG_7715.JPG', '/bandra/IMG_7722.JPG'
-];
-
-export const PROJECTS: Project[] = [
-  // --- ARCHITECTURE (3 projects) ---
+const PROJECTS = [
   {
     id: '1',
     title: 'JUHU VILLA',
@@ -42,10 +29,12 @@ export const PROJECTS: Project[] = [
     subCategory: 'RESIDENTIAL',
     imageUrl: '/juhu/IMG_6992.JPG',
     galleries: {
-      finished: GALLERY_JUHU,
+      finished: ['/juhu/IMG_6998.JPG', '/juhu/IMG_6999.JPG', '/juhu/IMG_7001.JPG', '/juhu/IMG_7005.JPG', '/juhu/IMG_7007.JPG', '/juhu/IMG_7010.JPG'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 0,
+    archived: false
   },
   {
     id: '2',
@@ -59,7 +48,9 @@ export const PROJECTS: Project[] = [
       finished: ['/matunga/GH2.jpg', '/matunga/GH6.jpg', '/matunga/GH7.jpg', '/matunga/GH20.jpg', '/matunga/GH22.jpg', '/matunga/GH26.jpg'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 1,
+    archived: false
   },
   {
     id: '3',
@@ -73,10 +64,10 @@ export const PROJECTS: Project[] = [
       finished: ['/matunga/SR1.jpg', '/matunga/SR3.jpg', '/matunga/SR4.jpg', '/matunga/DT1.jpg', '/matunga/tb1.jpg', '/matunga/tb2.jpg'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 2,
+    archived: false
   },
-  
-  // --- INTERIOR DESIGN (3 projects) ---
   {
     id: '4',
     title: 'MATUNGA RESIDENCE',
@@ -86,10 +77,12 @@ export const PROJECTS: Project[] = [
     subCategory: 'RESIDENTIAL',
     imageUrl: '/matunga/LR3.jpg',
     galleries: {
-      finished: GALLERY_MATUNGA,
+      finished: ['/matunga/A1.jpg', '/matunga/A3.jpg', '/matunga/A4.jpg', '/matunga/A6.jpg', '/matunga/b1.jpg', '/matunga/b2.jpg'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 3,
+    archived: false
   },
   {
     id: '5',
@@ -100,10 +93,12 @@ export const PROJECTS: Project[] = [
     subCategory: 'RESIDENTIAL',
     imageUrl: '/bandra/IMG_7696.JPG',
     galleries: {
-      finished: GALLERY_BANDRA,
+      finished: ['/bandra/IMG_7699.JPG', '/bandra/IMG_7701.JPG', '/bandra/IMG_7706.JPG', '/bandra/IMG_7709.JPG', '/bandra/IMG_7715.JPG', '/bandra/IMG_7722.JPG'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 4,
+    archived: false
   },
   {
     id: '6',
@@ -117,10 +112,10 @@ export const PROJECTS: Project[] = [
       finished: ['/matunga/NO1.jpg', '/matunga/NO6.jpg', '/matunga/NO9.jpg', '/matunga/NO20.jpg', '/matunga/c1.jpg', '/matunga/C13.jpg'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 5,
+    archived: false
   },
-
-  // --- LANDSCAPE (3 projects) ---
   {
     id: '7',
     title: 'CENTRAL PARK GARDENS',
@@ -133,7 +128,9 @@ export const PROJECTS: Project[] = [
       finished: ['/matunga/s1.jpg', '/matunga/s3.jpg', '/matunga/S4.jpg', '/matunga/s5.jpg', '/matunga/S7.jpg', '/matunga/S8.jpg'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 6,
+    archived: false
   },
   {
     id: '8',
@@ -147,7 +144,9 @@ export const PROJECTS: Project[] = [
       finished: ['/matunga/BV1.jpg', '/matunga/bv3.jpg', '/matunga/bv4.jpg', '/matunga/bv10.jpg', '/matunga/bv14.jpg', '/matunga/bv16.jpg'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 7,
+    archived: false
   },
   {
     id: '9',
@@ -161,19 +160,41 @@ export const PROJECTS: Project[] = [
       finished: ['/matunga/GHF3.jpg', '/matunga/GHF5.jpg', '/matunga/GHF18.jpg', '/matunga/GHF21.jpg', '/matunga/T5.jpg', '/matunga/t11.jpg'],
       development: []
     },
-    published: true
+    published: true,
+    displayOrder: 8,
+    archived: false
   }
 ];
 
-export const HERO_SLIDES = [
-  {
-    id: 1,
-    imageUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1920&q=80&auto=format&fit=crop',
-    tagline: 'Crafting spaces that inspire'
-  },
-  {
-    id: 2,
-    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1920&q=80&auto=format&fit=crop',
-    tagline: 'Where design meets emotion'
+async function seedFirestore() {
+  console.log('🌱 Starting Firestore seed...');
+  console.log(`📍 Project ID: shapenshades-74d41`);
+  console.log(`📦 Collection: projects`);
+  console.log(`📊 Documents to create: ${PROJECTS.length}\n`);
+
+  try {
+    let created = 0;
+    for (const project of PROJECTS) {
+      const docRef = doc(db, 'projects', project.id);
+      const payload = {
+        ...project,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isDeleted: false
+      };
+
+      await setDoc(docRef, payload);
+      created++;
+      console.log(`✅ [${created}/${PROJECTS.length}] Created: "${project.title}" (${project.location})`);
+    }
+
+    console.log(`\n🎉 Firestore seeding complete!`);
+    console.log(`✨ ${created} projects added to 'projects' collection`);
+    process.exit(0);
+  } catch (err) {
+    console.error('❌ Seeding failed:', err.message);
+    process.exit(1);
   }
-];
+}
+
+seedFirestore();

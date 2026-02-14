@@ -6,6 +6,25 @@ import { Ruler, PenTool, Home as HomeIcon, Search, Palette, Hammer, CheckCircle,
 const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   useEffect(() => {
     setIsDarkMode(false);
+
+    // Scroll-triggered animation for .about-animate elements
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.remove('opacity-0', 'translate-y-12');
+            entry.target.classList.add('opacity-100', 'translate-y-0');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+
+    const animElements = document.querySelectorAll('.about-animate');
+    animElements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
   }, [setIsDarkMode]);
 
   // Animated counter hook
@@ -117,48 +136,37 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         <div className="w-full h-px bg-gray-200 mt-12"></div>
       </div>
 
-      {/* 2. Split Layout: Image & Story */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 px-6 md:px-12 lg:px-24 mb-32 items-center">
-        {/* Studio Image */}
-        <div className="w-full h-[600px] bg-gray-100 relative overflow-hidden group">
-          <img
-            src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2000&auto=format&fit=crop"
-            alt="The Studio Workspace"
-            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-          />
-          <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-sm p-4 max-w-xs">
-            <p className="text-xs font-bold tracking-widest uppercase">The Studio</p>
-            <p className="text-xs text-gray-500 mt-1">Where ideas take shape.</p>
+      {/* 2. Our Story Paragraph */}
+      <div className="px-6 md:px-12 lg:px-24 mb-32">
+        <div className="max-w-4xl mx-auto overflow-hidden">
+          <div className="about-animate opacity-0 translate-y-12 transition-all duration-1000 ease-out delay-200">
+            <h2 className="text-3xl font-serif-display mb-4 text-center">Our Story</h2>
+            <div className="text-xl md:text-2xl font-light leading-relaxed text-gray-800 space-y-6 text-justify">
+              {ABOUT_TEXT.map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Text Content */}
-        <div className="space-y-8">
-          <h3 className="text-sm font-bold tracking-[0.2em] uppercase text-gray-400 mb-2">Our Story</h3>
-          <div className="text-lg md:text-xl font-light leading-relaxed text-gray-800 space-y-6 text-justify">
-            {ABOUT_TEXT.slice(0, 2).map((paragraph, index) => (
-              <p key={index}>{paragraph}</p>
-            ))}
+        {/* Animated Stats Row */}
+        <div className="max-w-4xl mx-auto grid grid-cols-3 gap-8 border-t border-gray-100 pt-10 mt-12">
+          <div ref={yearsCounter.ref}>
+            <p className="text-3xl md:text-4xl font-serif-display mb-1">{yearsCounter.count}+</p>
+            <p className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-gray-400">Years of Excellence</p>
           </div>
-          {/* Animated Stats Row */}
-          <div className="grid grid-cols-3 gap-8 border-t border-gray-100 pt-8 mt-8">
-            <div ref={yearsCounter.ref}>
-              <p className="text-3xl md:text-4xl font-serif-display mb-1">{yearsCounter.count}+</p>
-              <p className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-gray-400">Years of Excellence</p>
-            </div>
-            <div ref={projectsCounter.ref}>
-              <p className="text-3xl md:text-4xl font-serif-display mb-1">{projectsCounter.count}+</p>
-              <p className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-gray-400">Projects Completed</p>
-            </div>
-            <div ref={citiesCounter.ref}>
-              <p className="text-3xl md:text-4xl font-serif-display mb-1">{citiesCounter.count}</p>
-              <p className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-gray-400">Cities Covered</p>
-            </div>
+          <div ref={projectsCounter.ref}>
+            <p className="text-3xl md:text-4xl font-serif-display mb-1">{projectsCounter.count}+</p>
+            <p className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-gray-400">Projects Completed</p>
+          </div>
+          <div ref={citiesCounter.ref}>
+            <p className="text-3xl md:text-4xl font-serif-display mb-1">{citiesCounter.count}</p>
+            <p className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-gray-400">Cities Covered</p>
           </div>
         </div>
       </div>
 
-      {/* 3. Our Process */}
+      {/* 4. Our Process */}
       <div className="w-full py-24 px-6 md:px-12 lg:px-24 mb-32 hidden">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16 text-center">
@@ -227,16 +235,16 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       </div>
 
       {/* 6. Leadership Section */}
-      <div className="px-6 md:px-12 lg:px-24 max-w-7xl mx-auto py-32">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-gray-200 pb-6">
-          <h2 className="text-4xl md:text-5xl font-serif-display text-gray-900">Leadership</h2>
-          <p className="text-sm font-bold tracking-widest uppercase text-gray-400 mt-4 md:mt-0">The minds behind the design</p>
+      <div className="px-6 md:px-12 lg:px-24 max-w-7xl mx-auto py-16">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 border-b border-gray-200 pb-6">
+          <h2 className="text-4xl md:text-5xl font-serif-display text-gray-900 mb-2 md:mb-0">Leadership</h2>
+          <p className="text-xs md:text-sm font-bold tracking-widest uppercase text-gray-400">The minds behind the design</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-24">
-          {/* Director 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          {/* Director Image - Left */}
           <div className="group">
-            <div className="w-full aspect-[4/5] bg-gray-100 mb-6 overflow-hidden relative">
+            <div className="w-full aspect-[4/5] bg-gray-100 overflow-hidden relative">
               <img
                 src="/director1.png"
                 alt="Ar. Sohan Suthar"
@@ -244,28 +252,36 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               />
               <div className="absolute inset-0 border-[1px] border-transparent group-hover:border-white/20 m-4 transition-all duration-500"></div>
             </div>
-            <h3 className="text-2xl font-brand font-bold uppercase tracking-widest mb-1">Ar. Sohan Suthar</h3>
-            <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-4">Principal Architect & Founder</p>
-            <p className="text-gray-600 font-light text-sm leading-relaxed italic">
-              "Architecture should speak of its time and place, but yearn for timelessness." — Frank Gehry
-            </p>
           </div>
 
-          {/* Director 2 */}
-          <div className="group md:mt-16">
-            <div className="w-full aspect-[4/5] bg-gray-100 mb-6 overflow-hidden relative">
-              <img
-                src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=1000&auto=format&fit=crop"
-                alt="Ar. Sumit Kalle"
-                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
-              />
-              <div className="absolute inset-0 border-[1px] border-transparent group-hover:border-white/20 m-4 transition-all duration-500"></div>
+          {/* Director Info - Right */}
+          <div className="flex flex-col justify-center space-y-6">
+            <div>
+              <h3 className="text-3xl md:text-4xl font-brand font-bold uppercase tracking-wider mb-2">Ar. Sohan Suthar</h3>
+              <p className="text-sm font-bold tracking-[0.2em] text-gray-500 uppercase">Principal Architect & Founder</p>
             </div>
-            <h3 className="text-2xl font-brand font-bold uppercase tracking-widest mb-1">Ar. Sumit Kalle</h3>
-            <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-4">Principal Architect & Director</p>
-            <p className="text-gray-600 font-light text-sm leading-relaxed italic">
-              "The mother art is architecture. Without an architecture of our own, we have no soul of our own civilization." — Frank Lloyd Wright
-            </p>
+            
+            <div className="space-y-4 text-gray-700 leading-relaxed">
+              <p>
+                Sohan Suthar is the visionary force behind Shapes & Shades, bringing over a decade of experience in architecture and design. 
+                His approach combines technical precision with artistic sensibility, creating spaces that are both functional and inspiring.
+              </p>
+              <p>
+                With a deep understanding of urban contexts and a commitment to sustainable design, Sohan has led projects ranging from 
+                intimate residential interiors to large-scale commercial developments across India.
+              </p>
+              <p>
+                His design philosophy centers on timelessness, craftsmanship, and the belief that great architecture should enhance the 
+                quality of everyday life.
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-gray-200">
+              <p className="text-gray-600 font-light text-sm italic">
+                "Architecture should speak of its time and place, but yearn for timelessness."
+              </p>
+              <p className="text-xs text-gray-400 mt-1">— Frank Gehry</p>
+            </div>
           </div>
         </div>
       </div>
@@ -290,7 +306,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       </div>
 
       {/* 8. Testimonials Carousel */}
-      <div className="w-full py-24 md:py-32 px-6 md:px-12 lg:px-24 bg-white">
+      <div className="w-full py-12 md:py-16 px-6 md:px-12 lg:px-24 bg-white">
         <div className="max-w-4xl mx-auto text-center">
           <Quote size={40} strokeWidth={1} className="mx-auto text-gray-200 mb-8" />
           

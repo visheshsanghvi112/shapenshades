@@ -59,46 +59,55 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       {/* Slide Content */}
       <div className="absolute inset-0 w-full h-full">
         {activeSlide.type === 'video' ? (
-           <video 
-             key={activeSlide.url} // Key ensures React remounts/updates correctly for different videos
-             autoPlay 
-             muted 
-             loop // Video now loops instead of going to next slide
-             playsInline
-             onError={handleVideoError} // Fallback if video fails
-             className="absolute min-w-full min-h-full object-cover animate-fade-in"
-           >
-             <source src={activeSlide.url} type="video/mp4" />
-           </video>
+           <>
+             <video 
+               key={activeSlide.url} // Key ensures React remounts/updates correctly for different videos
+               autoPlay 
+               muted 
+               loop // Video now loops instead of going to next slide
+               playsInline
+               onError={handleVideoError} // Fallback if video fails
+               className="absolute min-w-full min-h-full object-cover animate-fade-in"
+             >
+               <source src={activeSlide.url} type="video/mp4" />
+             </video>
+             {/* Dark overlay for video */}
+             <div className="absolute inset-0 bg-black/30"></div>
+             {/* Text overlay for video */}
+             <div className="absolute inset-0 flex items-center justify-center z-10 px-6">
+               <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
+                 Design beyond<br />imagination
+               </h2>
+             </div>
+           </>
         ) : (
-           <div className="absolute inset-0 w-full h-full animate-fade-in">
-             <img 
-               src={activeSlide.url} 
-               alt="Shapes & Shades — Architecture & Interior Design" 
-               className="w-full h-full object-cover"
-               loading="eager"
-               decoding="async"
-               fetchPriority="high"
-             />
-             {/* Dark overlay to ensure White text is readable */}
-             <div className="absolute inset-0 bg-black/30" />
-           </div>
+           <>
+             <div 
+               className="absolute inset-0 w-full h-full animate-fade-in cursor-pointer"
+               onClick={() => { window.location.hash = 'projects'; }}
+             >
+               <img 
+                 src={activeSlide.url} 
+                 alt="Shapes & Shades — Architecture & Interior Design" 
+                 className="w-full h-full object-cover"
+                 loading="eager"
+                 decoding="async"
+                 fetchPriority="high"
+               />
+             </div>
+             {/* Dark overlay for images */}
+             <div className="absolute inset-0 bg-black/30 cursor-pointer" onClick={() => { window.location.hash = 'projects'; }}></div>
+             {/* Text overlay for images */}
+             {activeSlide.tagline && (
+               <div className="absolute inset-0 flex items-center justify-center z-10 px-6 cursor-pointer" onClick={() => { window.location.hash = 'projects'; }}>
+                 <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
+                   {activeSlide.tagline}
+                 </h2>
+               </div>
+             )}
+           </>
         )}
       </div>
-
-      {/* Text Overlay - Only for Images */}
-      {activeSlide.tagline && (
-        <div className="absolute inset-0 flex items-center justify-center p-8 z-10 pointer-events-none">
-          <div className="max-w-5xl text-center">
-            {/* Changed text color to White */}
-            <h2 className="text-3xl md:text-5xl lg:text-7xl text-white font-serif-display leading-tight tracking-wide animate-fade-in-up drop-shadow-md">
-               {activeSlide.tagline.split("'").map((part, i) => 
-                 i % 2 === 1 ? <span key={i} className="font-brand italic font-light text-gray-200">{part}</span> : part
-               )}
-            </h2>
-          </div>
-        </div>
-      )}
 
       {/* Navigation Arrows - Visible on mobile now */}
       <button 

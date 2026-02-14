@@ -1,4 +1,5 @@
 import React from 'react';
+import { Instagram, Youtube, Linkedin } from 'lucide-react';
 
 interface FooterProps {
   isDarkBackground?: boolean;
@@ -25,9 +26,15 @@ const Footer: React.FC<FooterProps> = ({ isDarkBackground = false, position = 'f
           © SHAPES & SHADES 2025
         </span>
         <div className="flex space-x-6 opacity-70">
-          <a href="#" className="text-xs font-bold tracking-widest hover:underline">IG.</a>
-          <a href="#" className="text-xs font-bold tracking-widest hover:underline">YT.</a>
-          <a href="#" className="text-xs font-bold tracking-widest hover:underline">LI.</a>
+          <a href="#" className="hover:opacity-100 transition-opacity">
+            <Instagram size={20} strokeWidth={1.5} />
+          </a>
+          <a href="#" className="hover:opacity-100 transition-opacity">
+            <Youtube size={20} strokeWidth={1.5} />
+          </a>
+          <a href="#" className="hover:opacity-100 transition-opacity">
+            <Linkedin size={20} strokeWidth={1.5} />
+          </a>
         </div>
       </div>
     </footer>

@@ -9,12 +9,13 @@ import Home from './views/Home';
 import About from './views/About';
 import Projects from './views/Projects';
 import Contact from './views/Contact';
+import Admin from './views/Admin';
 
 const App: React.FC = () => {
   // Initialize from URL hash
   const getInitialView = (): ViewState => {
     const hash = window.location.hash.slice(1).toUpperCase();
-    const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT'];
+    const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT', 'ADMIN'];
     return validViews.includes(hash as ViewState) ? (hash as ViewState) : 'HOME';
   };
 
@@ -36,7 +37,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1).toUpperCase();
-      const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT'];
+      const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT', 'ADMIN'];
       if (validViews.includes(hash as ViewState)) {
         setCurrentView(hash as ViewState);
       }
@@ -98,6 +99,7 @@ const App: React.FC = () => {
       case 'PROJECTS': return <Projects setIsDarkMode={setIsDarkMode} />;
       case 'ABOUT': return <About setIsDarkMode={setIsDarkMode} />;
       case 'CONTACT': return <Contact setIsDarkMode={setIsDarkMode} />;
+      case 'ADMIN': return <Admin setIsDarkMode={setIsDarkMode} />;
       default: return <Home setIsDarkMode={setIsDarkMode} />;
     }
   };
@@ -110,12 +112,16 @@ const App: React.FC = () => {
       <header 
         className={`fixed top-0 left-0 w-full z-40 p-6 md:p-8 flex justify-between items-center transition-transform duration-500 ease-in-out ${headerTextColor} ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}
       >
-        <h1 
-          className="text-lg md:text-xl font-brand tracking-widest font-bold cursor-pointer z-50 pointer-events-auto"
+        <div 
+          className="cursor-pointer z-50 pointer-events-auto"
           onClick={() => setCurrentView('HOME')}
         >
-          {FIRM_NAME}
-        </h1>
+          <img 
+            src="/LOGO.png" 
+            alt={FIRM_NAME}
+            className="h-24 md:h-28 w-auto object-contain"
+          />
+        </div>
         
         <button 
           onClick={() => {
