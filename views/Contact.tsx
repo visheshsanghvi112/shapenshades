@@ -27,20 +27,20 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 <h3 className="text-sm font-bold tracking-[0.2em] uppercase text-gray-400 mb-8">Studio</h3>
                 <address className="not-italic text-xl md:text-2xl font-light leading-relaxed text-gray-800">
                   Shapes & Shades <br/>
-                  123 Design Avenue,<br/>
-                  Creative District, Mumbai<br/>
-                  India 400050
+                  705, Prathvi Sadan, B.P. Road,<br/>
+                  Bhayandar East, Thane<br/>
+                  Maharashtra 401105
                 </address>
             </div>
 
             <div>
                 <h3 className="text-sm font-bold tracking-[0.2em] uppercase text-gray-400 mb-8">Connect</h3>
                 <div className="flex flex-col space-y-4">
-                  <a href="mailto:hello@shapesandshades.com" className="text-xl md:text-2xl hover:text-gray-500 transition-colors border-b border-black pb-1 self-start">
-                    hello@shapesandshades.com
+                  <a href="mailto:design.shapenshades@gmail.com" className="text-xl md:text-2xl hover:text-gray-500 transition-colors border-b border-black pb-1 self-start">
+                    design.shapenshades@gmail.com
                   </a>
-                  <a href="tel:+919876543210" className="text-xl md:text-2xl hover:text-gray-500 transition-colors border-b border-black pb-1 self-start">
-                    +91 98765 43210
+                  <a href="tel:+918097241237" className="text-xl md:text-2xl hover:text-gray-500 transition-colors border-b border-black pb-1 self-start">
+                    +91 80972 41237
                   </a>
                 </div>
             </div>
