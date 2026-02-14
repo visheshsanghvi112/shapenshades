@@ -123,7 +123,7 @@ const App: React.FC = () => {
           <img 
             src="/logo-web.png" 
             alt={FIRM_NAME}
-            className="h-24 md:h-28 w-auto object-contain"
+            className="h-16 md:h-20 w-auto object-contain"
           />
         </div>
         
