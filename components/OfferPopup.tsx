@@ -38,7 +38,7 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
         createdAt: serverTimestamp(),
         source: 'offer_popup',
       });
-      trackOfferSubmission();
+      trackOfferSubmission(formData.email);
       localStorage.setItem('offerFormSubmitted', 'true');
       setSubmitted(true);
       setTimeout(() => {

@@ -1,5 +1,5 @@
 import { logEvent } from 'firebase/analytics';
-import { getAnalyticsInstance } from '../src/firebase';
+import { getAnalyticsInstance } from './firebase';
 import { COOKIE_CONSENT_KEY } from '../components/CookieConsent';
 
 /**
