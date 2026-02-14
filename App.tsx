@@ -120,7 +120,7 @@ const App: React.FC = () => {
           onClick={() => setCurrentView('HOME')}
         >
           <img 
-            src="/LOGO.png" 
+            src="/logo-web.png" 
             alt={FIRM_NAME}
             className="h-24 md:h-28 w-auto object-contain"
           />

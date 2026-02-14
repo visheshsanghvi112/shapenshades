@@ -998,7 +998,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           {/* Left panel — brand + info */}
           <div className="space-y-8 text-center lg:text-left">
             <div className="flex justify-center lg:justify-start">
-              <img src="/LOGO.png" alt="Shapes & Shades" className="h-20 md:h-24 w-auto object-contain brightness-0 invert opacity-90" />
+              <img src="/logo-web.png" alt="Shapes & Shades" className="h-20 md:h-24 w-auto object-contain brightness-0 invert opacity-90" />
             </div>
             <div className="space-y-3">
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif-display leading-tight tracking-tight">
