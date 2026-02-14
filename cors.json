@@ -1,0 +1,14 @@
+[
+  {
+    "origin": [
+      "https://shapenshades2.vercel.app",
+      "https://shapesandshades.com",
+      "https://www.shapesandshades.com",
+      "http://localhost:3000",
+      "http://localhost:5173"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "X-Requested-With"]
+  }
+]

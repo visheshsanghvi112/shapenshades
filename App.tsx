@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Menu as MenuIcon } from 'lucide-react';
 import { ViewState } from './types';
 import { FIRM_NAME } from './constants';
+import { trackPageView } from './src/analytics';
 import Menu from './components/Menu';
 import Footer from './components/Footer';
 import OfferPopup from './components/OfferPopup';
+import CookieConsent from './components/CookieConsent';
 import Home from './views/Home';
 import About from './views/About';
 import Projects from './views/Projects';
@@ -32,6 +34,7 @@ const App: React.FC = () => {
   useEffect(() => {
     window.location.hash = currentView.toLowerCase();
     window.scrollTo(0, 0); // Scroll to top on page change
+    trackPageView(currentView);
   }, [currentView]);
 
   useEffect(() => {
@@ -166,6 +169,9 @@ const App: React.FC = () => {
         isOpen={isOfferPopupOpen && !isMenuOpen}
         onClose={() => setIsOfferPopupOpen(false)}
       />
+
+      {/* Cookie Consent */}
+      <CookieConsent />
     </div>
   );
 };

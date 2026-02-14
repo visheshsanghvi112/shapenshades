@@ -5,24 +5,41 @@ import { Trash2, Plus, Upload, Image, X, ChevronDown, ChevronUp, Star, LogIn, Lo
 import { auth, db, storage, isFirebaseConfigured } from '../src/firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, deleteObject } from 'firebase/storage';
 
 const FIRESTORE_COLLECTION = 'projects';
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000';
 const DEV_STORAGE_KEY = 'shapes_shades_dev_projects_v2';
+const IMGBB_API_KEY = 'ac67b61d339631b073051b879364c0bd';
+
+const IMGBB_MAX_SIZE = 32 * 1024 * 1024; // 32 MB free-tier limit
+
+const uploadToImgBB = async (file: File): Promise<string> => {
+  if (file.size > IMGBB_MAX_SIZE) {
+    throw new Error(`File "${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB — ImgBB limit is 32 MB. Please compress or resize before uploading.`);
+  }
+  const formData = new FormData();
+  formData.append('image', file);
+  formData.append('key', IMGBB_API_KEY);
+  const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+  if (!res.ok) throw new Error(`ImgBB upload failed: ${res.status} ${res.statusText}`);
+  const json = await res.json();
+  if (!json.data?.url) throw new Error('ImgBB response missing image URL');
+  return json.data.url as string;
+};
 const STOCK_COVER_POOL: string[] = [
-  'https://images.unsplash.com/photo-1505693415763-3ed5e04ba4cd?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1465805139202-a644e217f00b?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1473181488821-2d23949a045a?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1505692069463-5e3405e01f4b?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1505692270181-d6cb0f3c52f1?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1586023492125-27b46c719b13?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1618221195710-dd9bfa6f3241?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1629373146475-6868f0a44f6e?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1631679706909-1844bbd07221?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1582321886083-a1a7707b6dbf?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1630519147263-d38edc983f25?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1616594039964-ae9021539b6b?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1615529328331-f8917597711f?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1567818735868-e71b99932e29?auto=format&fit=crop&w=1800&q=80',
+  'https://images.unsplash.com/photo-1600210492493-0946911123ea?auto=format&fit=crop&w=1800&q=80',
 ];
 
 const sortProjects = (entries: Project[]): Project[] => {
@@ -589,15 +606,12 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) continue;
       try {
-        const timestamp = Date.now();
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const storageRef = ref(storage, `projects/${uploadTarget.projectId}/${uploadTarget.gallery}/${timestamp}_${safeName}`);
-        await uploadBytes(storageRef, file);
-        const downloadUrl = await getDownloadURL(storageRef);
+        const downloadUrl = await uploadToImgBB(file);
         const success = await addImageToGallery(uploadTarget.projectId, uploadTarget.gallery, downloadUrl);
         if (success) added++;
       } catch (err) {
-        reportError('Upload failed', err);
+        const msg = err instanceof Error ? err.message : 'Upload failed';
+        reportError('Upload failed', err, msg);
       }
     }
 
