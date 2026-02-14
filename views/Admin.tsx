@@ -171,6 +171,8 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [newProject, setNewProject] = useState<NewProjectDraft>(createNewProjectDraft(PROJECTS.length + 1));
   const [showArchived, setShowArchived] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverUploadTarget = useRef<string | null>(null);
   const devBypass = !isFirebaseConfigured || import.meta.env.VITE_DEV_ADMIN_BYPASS === 'true';
 
   const archiveCount = useMemo(() => projects.filter((p) => p.archived).length, [projects]);
@@ -745,6 +747,38 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       reportError('Failed to reset cover', err, 'Could not reset cover');
     }
   }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, updateDraft]);
+
+  const handleCoverFileUpload = useCallback(async (files: FileList | null) => {
+    const projectId = coverUploadTarget.current;
+    if (!files || files.length === 0 || !projectId) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      flash('err', 'Please select an image file');
+      return;
+    }
+    setUploading(true);
+    try {
+      if (devBypass) {
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+        await handleSetCover(projectId, dataUrl);
+      } else {
+        const url = await uploadToImgBB(file);
+        await handleSetCover(projectId, url);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Cover upload failed';
+      reportError('Cover upload failed', err, msg);
+    } finally {
+      setUploading(false);
+      coverUploadTarget.current = null;
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  }, [devBypass, flash, handleSetCover, reportError]);
 
   const openNewProjectModal = useCallback(() => {
     const lastOrder = projects
@@ -1345,6 +1379,16 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         }}
       />
 
+      <input
+        ref={coverInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          handleCoverFileUpload(e.target.files);
+        }}
+      />
+
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 rounded-2xl border border-gray-200 bg-white/90 shadow-sm px-4 py-3 sticky top-0 z-30 backdrop-blur">
           <div className="space-y-1">
@@ -1643,8 +1687,54 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                             Reset cover
                           </button>
 
-                          <div className="space-y-2 w-full">
-                            <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-gray-500">Suggested covers</p>
+                          <div className="space-y-3 w-full">
+                            <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-gray-500">Cover image</p>
+
+                            {/* Current cover preview */}
+                            {draft.imageUrl && (
+                              <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                                <img src={draft.imageUrl} alt="Current cover" className="w-full h-32 object-cover" />
+                                <span className="absolute top-2 left-2 bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded">CURRENT COVER</span>
+                              </div>
+                            )}
+
+                            {/* Upload cover from computer */}
+                            <button
+                              onClick={() => {
+                                coverUploadTarget.current = project.id;
+                                coverInputRef.current?.click();
+                              }}
+                              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-xs text-gray-500 hover:border-black hover:text-black transition-colors active:bg-gray-50"
+                            >
+                              <Upload size={16} />
+                              <span>Upload cover from computer</span>
+                            </button>
+
+                            {/* Paste cover URL */}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={urlDrafts[`cover_${project.id}`] ?? ''}
+                                onChange={(e) => setUrlDrafts((prev) => ({ ...prev, [`cover_${project.id}`]: e.target.value }))}
+                                placeholder="Or paste cover image URL"
+                                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/40"
+                              />
+                              <button
+                                onClick={async () => {
+                                  const url = (urlDrafts[`cover_${project.id}`] ?? '').trim();
+                                  if (!url) return;
+                                  try { new URL(url); } catch { flash('err', 'Please enter a valid URL'); return; }
+                                  await handleSetCover(project.id, url);
+                                  setUrlDrafts((prev) => ({ ...prev, [`cover_${project.id}`]: '' }));
+                                }}
+                                className="px-3 py-2.5 bg-black text-white rounded-xl text-xs flex items-center gap-1 hover:opacity-90 active:opacity-70"
+                              >
+                                Set
+                              </button>
+                            </div>
+
+                            {/* Suggested covers */}
+                            <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-gray-400 pt-1">Suggestions</p>
                             <div className="grid grid-cols-3 gap-2">
                               {suggestCovers(project.id).map((coverUrl, idx) => {
                                 const isCurrent = draft.imageUrl === coverUrl;
