@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { PROJECTS } from '../constants';
 import { Project, ViewProps } from '../types';
-import { Trash2, Plus, Upload, Image, X, ChevronDown, ChevronUp, Star, LogIn, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Upload, Image, X, ChevronDown, ChevronUp, Star, LogIn, Loader2, Eye, EyeOff, ShieldCheck, Lock, Mail } from 'lucide-react';
 import { auth, db, storage, isFirebaseConfigured } from '../src/firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -149,6 +149,8 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   const [projects, setProjects] = useState<Project[]>(ensureDefaultProjects(normalizeProjects(PROJECTS)));
   const [existingIds, setExistingIds] = useState<string[]>([]);
@@ -936,11 +938,23 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
+    setLoginLoading(true);
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
     } catch (err: any) {
       reportError('Login failed', err);
-      setLoginError(err.message || 'Login failed');
+      const code = err?.code ?? '';
+      const friendlyMessages: Record<string, string> = {
+        'auth/invalid-credential': 'Invalid email or password',
+        'auth/user-not-found': 'No account found with this email',
+        'auth/wrong-password': 'Incorrect password',
+        'auth/too-many-requests': 'Too many attempts. Please wait a moment.',
+        'auth/network-request-failed': 'Network error. Check your connection.',
+        'auth/invalid-email': 'Please enter a valid email address',
+      };
+      setLoginError(friendlyMessages[code] || 'Login failed. Please try again.');
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -970,64 +984,142 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   // Login screen
   if (!user) {
     return (
-      <div className="relative w-full min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, #ffffff 0, transparent 25%), radial-gradient(circle at 80% 10%, #ffffff 0, transparent 20%), radial-gradient(circle at 40% 80%, #ffffff 0, transparent 20%)' }} />
-        <div className="relative max-w-5xl mx-auto px-4 md:px-8 lg:px-12 py-16 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs uppercase tracking-[0.25em]">
-              <span>{devBypass ? 'Local demo (no Firebase)' : 'Live Firebase'}</span>
+      <div className="relative w-full min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white overflow-hidden flex items-center justify-center">
+        {/* Animated background grid */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '60px 60px',
+        }} />
+        {/* Soft radial glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)' }} />
+
+        <div className="relative w-full max-w-5xl mx-auto px-4 md:px-8 lg:px-12 py-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          {/* Left panel — brand + info */}
+          <div className="space-y-8 text-center lg:text-left">
+            <div className="flex justify-center lg:justify-start">
+              <img src="/LOGO.png" alt="Shapes & Shades" className="h-20 md:h-24 w-auto object-contain brightness-0 invert opacity-90" />
             </div>
-            <h1 className="text-4xl md:text-5xl font-serif-display leading-tight">Admin Console</h1>
-            <p className="text-sm md:text-base text-white/70 max-w-xl">Manage projects, galleries, and visibility. Use your authorized email to sign in.</p>
-            <div className="hidden lg:block rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 text-sm text-white/80">
-              <div className="flex items-center gap-2 text-white"><LogIn size={16} /> Tips</div>
-              <ul className="mt-2 space-y-1 list-disc list-inside text-white/70">
-                <li>Use your Firebase auth email and password.</li>
-                <li>Publish toggles control what appears on the live site.</li>
-                <li>Archived projects stay hidden until restored.</li>
-              </ul>
+            <div className="space-y-3">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif-display leading-tight tracking-tight">
+                Admin Console
+              </h1>
+              <p className="text-sm md:text-base text-white/50 max-w-md mx-auto lg:mx-0 leading-relaxed">
+                Manage your projects, curate galleries, and control what goes live on the website.
+              </p>
+            </div>
+
+            <div className="hidden lg:flex flex-col gap-4">
+              <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm p-4">
+                <div className="mt-0.5 p-2 rounded-lg bg-white/[0.06]"><ShieldCheck size={16} className="text-emerald-400" /></div>
+                <div>
+                  <p className="text-sm font-medium text-white/90">Secure access</p>
+                  <p className="text-xs text-white/40 mt-0.5">Only authorized Firebase accounts can sign in.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm p-4">
+                <div className="mt-0.5 p-2 rounded-lg bg-white/[0.06]"><Upload size={16} className="text-blue-400" /></div>
+                <div>
+                  <p className="text-sm font-medium text-white/90">Upload & organize</p>
+                  <p className="text-xs text-white/40 mt-0.5">Upload images, manage galleries, set covers — all from one place.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center lg:justify-start gap-2">
+              <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.3em] px-3 py-1.5 rounded-full border ${devBypass ? 'border-amber-500/30 bg-amber-500/10 text-amber-400' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${devBypass ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse`} />
+                {devBypass ? 'Local demo' : 'Live'}
+              </span>
             </div>
           </div>
 
-          <div className="bg-white text-gray-900 rounded-2xl shadow-2xl p-8 space-y-6 border border-gray-100">
-            <div className="space-y-2 text-center">
-              <LogIn size={32} className="mx-auto text-gray-400" />
-              <h2 className="text-2xl font-semibold">Sign in</h2>
-              <p className="text-sm text-gray-500">Enter your admin credentials</p>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Email</label>
-                <input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                />
+          {/* Right panel — login form */}
+          <div className="w-full max-w-md mx-auto lg:mx-0">
+            <div className="bg-white text-gray-900 rounded-3xl shadow-2xl shadow-black/40 p-8 md:p-10 space-y-7 border border-white/20">
+              <div className="space-y-2 text-center">
+                <div className="mx-auto w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
+                  <Lock size={24} className="text-gray-600" />
+                </div>
+                <h2 className="text-2xl font-semibold tracking-tight mt-3">Welcome back</h2>
+                <p className="text-sm text-gray-400">Sign in to manage your projects</p>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Password</label>
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                />
+
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">Email</label>
+                  <div className="relative">
+                    <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
+                    <input
+                      type="email"
+                      value={loginEmail}
+                      onChange={(e) => { setLoginEmail(e.target.value); setLoginError(''); }}
+                      placeholder="admin@shapesandshades.com"
+                      required
+                      autoComplete="email"
+                      className="w-full border border-gray-200 rounded-xl pl-11 pr-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/30 focus:border-transparent transition-shadow placeholder:text-gray-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">Password</label>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={loginPassword}
+                      onChange={(e) => { setLoginPassword(e.target.value); setLoginError(''); }}
+                      placeholder="Enter your password"
+                      required
+                      autoComplete="current-password"
+                      className="w-full border border-gray-200 rounded-xl pl-11 pr-12 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/30 focus:border-transparent transition-shadow placeholder:text-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {loginError && (
+                  <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm animate-fade-in">
+                    <X size={14} className="flex-shrink-0" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loginLoading || !loginEmail || !loginPassword}
+                  className="w-full py-3.5 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 active:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                >
+                  {loginLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Signing in...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={16} />
+                      <span>Sign In</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100" /></div>
+                <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-300 uppercase tracking-[0.2em]">Info</span></div>
               </div>
-              {loginError && <p className="text-sm text-red-600">{loginError}</p>}
-              <button
-                type="submit"
-                className="w-full py-3 bg-black text-white rounded-xl text-sm font-medium hover:opacity-90"
-              >
-                Sign In
-              </button>
-            </form>
-            <div className="text-xs text-gray-500 text-center">
-              Need access? Ask an admin to add your email in Firebase Auth.
+
+              <p className="text-xs text-gray-400 text-center leading-relaxed">
+                Need access? Contact an existing admin to add your email through Firebase Authentication.
+              </p>
             </div>
           </div>
         </div>
