@@ -141,7 +141,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         <div className="max-w-4xl mx-auto overflow-hidden">
           <div className="about-animate opacity-0 translate-y-12 transition-all duration-1000 ease-out delay-200">
             <h2 className="text-3xl font-serif-display mb-4 text-center">Our Story</h2>
-            <div className="text-xl md:text-2xl font-light leading-relaxed text-gray-800 space-y-6 text-justify">
+            <div className="text-base md:text-2xl font-light leading-relaxed text-gray-800 space-y-6 text-justify">
               {ABOUT_TEXT.map((paragraph, index) => (
                 <p key={index}>{paragraph}</p>
               ))}
@@ -179,7 +179,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-4 relative">
             {/* Connecting line (desktop) */}
             <div className="hidden md:block absolute top-10 left-[12.5%] right-[12.5%] h-px bg-gray-200 z-0"></div>
-            
+
             {process.map((item, idx) => (
               <div key={idx} className="relative z-10 flex flex-col items-center text-center group">
                 <div className="w-20 h-20 rounded-full bg-white border-2 border-gray-200 flex items-center justify-center text-black mb-6 transition-all duration-500 group-hover:bg-black group-hover:text-white group-hover:border-black">
@@ -220,7 +220,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
       {/* 5. Parallax Image Break */}
       <div className="w-full h-[50vh] md:h-[70vh] relative overflow-hidden">
-        <div 
+        <div
           className="absolute inset-0 bg-fixed bg-cover bg-center"
           style={{ backgroundImage: "url('https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1920&q=80&auto=format&fit=crop&fm=webp')" }}
         />
@@ -260,18 +260,18 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               <h3 className="text-3xl md:text-4xl font-brand font-bold uppercase tracking-wider mb-2">Ar. Sohan Suthar</h3>
               <p className="text-sm font-bold tracking-[0.2em] text-gray-500 uppercase">Principal Architect & Founder</p>
             </div>
-            
+
             <div className="space-y-4 text-gray-700 leading-relaxed">
               <p>
-                Sohan Suthar is the visionary force behind Shapes & Shades, bringing over a decade of experience in architecture and design. 
+                Sohan Suthar is the visionary force behind Shapes & Shades, bringing over a decade of experience in architecture and design.
                 His approach combines technical precision with artistic sensibility, creating spaces that are both functional and inspiring.
               </p>
               <p>
-                With a deep understanding of urban contexts and a commitment to sustainable design, Sohan has led projects ranging from 
+                With a deep understanding of urban contexts and a commitment to sustainable design, Sohan has led projects ranging from
                 intimate residential interiors to large-scale commercial developments across India.
               </p>
               <p>
-                His design philosophy centers on timelessness, craftsmanship, and the belief that great architecture should enhance the 
+                His design philosophy centers on timelessness, craftsmanship, and the belief that great architecture should enhance the
                 quality of everyday life.
               </p>
             </div>
@@ -309,14 +309,13 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       <div className="w-full py-12 md:py-16 px-6 md:px-12 lg:px-24 bg-white">
         <div className="max-w-4xl mx-auto text-center">
           <Quote size={40} strokeWidth={1} className="mx-auto text-gray-200 mb-8" />
-          
+
           <div className="relative min-h-[200px] flex items-center justify-center">
             {testimonials.map((t, idx) => (
-              <div 
+              <div
                 key={idx}
-                className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-700 ${
-                  idx === activeTestimonial ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-                }`}
+                className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-700 ${idx === activeTestimonial ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+                  }`}
               >
                 <p className="text-xl md:text-2xl lg:text-3xl font-serif-display text-gray-800 leading-relaxed italic mb-8">
                   "{t.quote}"
@@ -335,9 +334,8 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               <button
                 key={idx}
                 onClick={() => setActiveTestimonial(idx)}
-                className={`w-2 h-2 rounded-full transition-all duration-500 ${
-                  idx === activeTestimonial ? 'bg-black w-8' : 'bg-gray-300 hover:bg-gray-500'
-                }`}
+                className={`w-2 h-2 rounded-full transition-all duration-500 ${idx === activeTestimonial ? 'bg-black w-8' : 'bg-gray-300 hover:bg-gray-500'
+                  }`}
               />
             ))}
           </div>

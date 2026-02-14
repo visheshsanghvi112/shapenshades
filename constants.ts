@@ -10,9 +10,9 @@ export const HERO_VIDEOS = [
 
 export const ABOUT_TEXT = [
   "Founded on 9th September 2019 by Architect Sohan Suthar, Shapes & Shades is a full-service design and consulting firm rooted in thoughtful design, technical precision, and timeless aesthetics.",
-  "We specialize in architecture, interior design, and construction administration, offering truly end-to-end solutions—from concept development and detailed design to execution support and on-site coordination. Every project is approached as a unique story, where form, function, and feeling come together seamlessly.",
-  "At Shapes & Shades, we believe great design is not just seen—it is experienced. Our process is collaborative, detail-driven, and client-centric, ensuring that each space reflects purpose, personality, and long-term value. Whether it’s a residence, commercial space, or large-scale development, we balance creativity with practicality to deliver spaces that are elegant, efficient, and enduring.",
-  "With a strong foundation in design excellence and construction understanding, we transform ideas into well-crafted realities—shaping spaces, defining shades, and creating environments that inspire."
+  "We specialize in architecture, interior design, and construction administration, offering truly end-to-end solutions from concept development and detailed design to execution support and on-site coordination. Every project is approached as a unique story, where form, function, and feeling come together seamlessly.",
+  "At Shapes & Shades, we believe great design is not just seen—it is experienced. Our process is collaborative, detail-driven, and client-centric, ensuring that each space reflects purpose, personality, and long-term value. Whether it’s a residence, commercial space, or large scale development, we balance creativity with practicality to deliver spaces that are elegant, efficient, and enduring.",
+  "With a strong foundation in design excellence and construction understanding, we transform ideas into well-crafted realities shaping spaces, defining shades, and creating environments that inspire."
 ];
 
 // Project gallery images from real shoots (max 6 per project, no repeats)
@@ -75,7 +75,7 @@ export const PROJECTS: Project[] = [
     },
     published: true
   },
-  
+
   // --- INTERIOR DESIGN (3 projects) ---
   {
     id: '4',
