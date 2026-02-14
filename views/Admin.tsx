@@ -157,6 +157,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [drafts, setDrafts] = useState<Record<string, Project>>({});
   const [activeGalleryTab, setActiveGalleryTab] = useState<Record<string, GalleryKey>>({});
   const [uploadTarget, setUploadTarget] = useState<{ projectId: string; gallery: GalleryKey } | null>(null);
+  const uploadTargetRef = useRef<{ projectId: string; gallery: GalleryKey } | null>(null);
   const [urlDrafts, setUrlDrafts] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ projectId: string; url: string } | null>(null);
@@ -564,6 +565,18 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     const url = (urlDrafts[projectId] ?? '').trim();
     if (!url) return;
 
+    try {
+      new URL(url);
+    } catch {
+      flash('err', 'Please enter a valid image URL');
+      return;
+    }
+
+    if (!/\.(jpe?g|png|gif|webp|avif|bmp|svg)(\?.*)?$/i.test(url) && !url.includes('unsplash.com') && !url.includes('ibb.co') && !url.includes('imgur.com')) {
+      flash('err', 'URL does not look like an image. Use a direct image link.');
+      return;
+    }
+
     const success = await addImageToGallery(projectId, gallery, url);
     if (success) {
       setUrlDrafts((prev) => ({ ...prev, [projectId]: '' }));
@@ -572,14 +585,16 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   }, [addImageToGallery, flash, getActiveGallery, urlDrafts]);
 
   const handleFileUpload = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0 || !uploadTarget) return;
-    debugInfo('Upload start', `${files.length} file(s) to ${uploadTarget.projectId}/${uploadTarget.gallery}`);
+    const target = uploadTargetRef.current;
+    if (!files || files.length === 0 || !target) return;
+    debugInfo('Upload start', `${files.length} file(s) to ${target.projectId}/${target.gallery}`);
     setUploading(true);
     let added = 0;
+    let skipped = 0;
 
     if (devBypass) {
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) continue;
+        if (!file.type.startsWith('image/')) { skipped++; continue; }
         try {
           const dataUrl: string = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -587,7 +602,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             reader.onerror = () => reject(reader.error);
             reader.readAsDataURL(file);
           });
-          const success = await addImageToGallery(uploadTarget.projectId, uploadTarget.gallery, dataUrl);
+          const success = await addImageToGallery(target.projectId, target.gallery, dataUrl);
           if (success) added++;
         } catch (err) {
           reportError('Dev upload failed', err);
@@ -595,19 +610,22 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       }
 
       setUploading(false);
+      uploadTargetRef.current = null;
       setUploadTarget(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (added > 0) {
         flash('ok', `${added} image${added === 1 ? '' : 's'} uploaded`);
+      } else if (skipped > 0) {
+        flash('err', `${skipped} file${skipped === 1 ? '' : 's'} skipped — only images are allowed`);
       }
       return;
     }
 
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) continue;
+      if (!file.type.startsWith('image/')) { skipped++; continue; }
       try {
         const downloadUrl = await uploadToImgBB(file);
-        const success = await addImageToGallery(uploadTarget.projectId, uploadTarget.gallery, downloadUrl);
+        const success = await addImageToGallery(target.projectId, target.gallery, downloadUrl);
         if (success) added++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Upload failed';
@@ -616,12 +634,17 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     }
 
     setUploading(false);
+    uploadTargetRef.current = null;
     setUploadTarget(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (added > 0) {
       flash('ok', `${added} image${added === 1 ? '' : 's'} uploaded`);
+    } else if (skipped > 0 && added === 0) {
+      flash('err', `${skipped} file${skipped === 1 ? '' : 's'} skipped — only images are allowed`);
+    } else if (added === 0) {
+      flash('err', 'Upload failed — no images were added');
     }
-  }, [addImageToGallery, debugInfo, devBypass, flash, reportError, uploadTarget]);
+  }, [addImageToGallery, debugInfo, devBypass, flash, reportError]);
 
   const handleRemoveImage = useCallback(async (projectId: string, url: string) => {
     const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
@@ -1227,7 +1250,6 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         className="hidden"
         onChange={(e) => {
           handleFileUpload(e.target.files);
-          if (e.target) e.target.value = '';
         }}
       />
 
@@ -1496,6 +1518,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                         <div className="space-y-3">
                           <button
                             onClick={() => {
+                              uploadTargetRef.current = { projectId: project.id, gallery: activeTab };
                               setUploadTarget({ projectId: project.id, gallery: activeTab });
                               fileInputRef.current?.click();
                             }}
