@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { PROJECTS } from '../constants';
 import { Project, ViewProps } from '../types';
-import { Trash2, Plus, Upload, Image, X, ChevronDown, ChevronUp, Star, LogIn, Loader2, Eye, EyeOff, ShieldCheck, Lock, Mail } from 'lucide-react';
+import { Trash2, Plus, Upload, Image, X, ChevronDown, ChevronUp, Star, LogIn, Loader2, Eye, EyeOff, ShieldCheck, Lock, Mail, GripVertical, Copy, ArrowRightLeft, Search, Maximize2, Download, CheckSquare, ChevronLeft, ChevronRight, Clock, HelpCircle, LayoutGrid, Edit3, Settings, ImageIcon, MapPin, RefreshCw, Archive as ArchiveIcon, FilePlus, Globe } from 'lucide-react';
 import { auth, db, storage, isFirebaseConfigured } from '../src/firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -10,6 +10,27 @@ import { ref, deleteObject } from 'firebase/storage';
 const FIRESTORE_COLLECTION = 'projects';
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000';
 const DEV_STORAGE_KEY = 'shapes_shades_dev_projects_v2';
+
+const TOUR_STEPS: { target: string; title: string; description: string }[] = [
+  { target: 'dashboard-stats', title: 'Dashboard Overview', description: 'Your portfolio health at a glance — total projects, published count, archived, and image stats.' },
+  { target: 'search-bar', title: 'Search & Filter', description: 'Type here to instantly filter projects by name, location, or category.' },
+  { target: 'archive-toggle', title: 'Archive Toggle', description: 'Switch between active and archived views. Archived projects are hidden from your live site.' },
+  { target: 'export-btn', title: 'Export Backup', description: 'Download all project data as a JSON file — handy for backups or migrations.' },
+  { target: 'new-project-btn', title: 'Create Project', description: 'Start a new project from scratch. Give it a name, location, and category.' },
+  { target: 'project-card-0', title: 'Project Card', description: 'Each card shows a project at a glance. Click it to expand and edit details, galleries, and covers.' },
+  { target: 'drag-handle-0', title: 'Drag to Reorder', description: 'Grab this handle and drag up/down to change the display order on your site.' },
+  { target: 'publish-toggle-0', title: 'Quick Publish', description: 'Toggle the eye icon to instantly publish or unpublish — no need to open the card.' },
+  { target: 'select-checkbox-0', title: 'Bulk Select', description: 'Check multiple projects then use the action bar to publish or hide them all at once.' },
+  // Steps inside expanded project (auto-expands first project)
+  { target: 'gallery-tabs', title: 'Gallery Tabs', description: 'Switch between Finished (client-ready) and Development (work-in-progress) galleries.' },
+  { target: 'upload-area', title: 'Upload Images', description: 'Click here or paste a URL below to add images to the active gallery. Everything auto-saves!' },
+  { target: 'cover-section', title: 'Cover Image', description: 'Your project cover shown on the portfolio. Pick from your gallery images or upload a new one.' },
+  { target: 'autosave-indicator', title: 'Auto-Save', description: 'All edits save automatically — no need to press any save button. Just edit and go!' },
+  { target: 'tour-btn', title: 'That\'s It!', description: 'You can re-open this tour anytime by clicking the Tour button. Enjoy managing your portfolio!' },
+];
+// Tour steps that require the first project to be expanded
+const TOUR_EXPANDED_TARGETS = new Set(['gallery-tabs', 'upload-area', 'cover-section', 'autosave-indicator']);
+const TOUR_SPOTLIGHT_PAD = 8;
 const IMGBB_API_KEY = 'ac67b61d339631b073051b879364c0bd';
 
 const IMGBB_MAX_SIZE = 32 * 1024 * 1024; // 32 MB free-tier limit
@@ -20,11 +41,25 @@ const uploadToImgBB = async (file: File): Promise<string> => {
   }
   const formData = new FormData();
   formData.append('image', file);
-  formData.append('key', IMGBB_API_KEY);
-  const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
-  if (!res.ok) throw new Error(`ImgBB upload failed: ${res.status} ${res.statusText}`);
+
+  // Pass key in URL as per standard API usage
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error('[ImgBB] Upload Error:', res.status, errorText);
+    throw new Error(`ImgBB upload failed: ${res.status} ${res.statusText}`);
+  }
+
   const json = await res.json();
-  if (!json.data?.url) throw new Error('ImgBB response missing image URL');
+  if (!json.data?.url) {
+    console.error('[ImgBB] Invalid Response:', json);
+    throw new Error('ImgBB response missing image URL');
+  }
+
   return json.data.url as string;
 };
 const STOCK_COVER_POOL: string[] = [
@@ -63,12 +98,20 @@ const normalizeProjects = (entries: Project[]): Project[] => {
   return sortProjects(entries.map(normalizeProject));
 };
 
-const suggestCovers = (projectId: string): string[] => {
-  if (STOCK_COVER_POOL.length < 3) return STOCK_COVER_POOL;
+const suggestCovers = (projectId: string, galleries?: { finished: string[]; development: string[] }): string[] => {
+  // Prefer the project's own gallery images as cover suggestions (they're already uploaded & reliable)
+  const ownImages: string[] = [];
+  if (galleries) {
+    galleries.finished.forEach((u) => { if (!ownImages.includes(u)) ownImages.push(u); });
+    galleries.development.forEach((u) => { if (!ownImages.includes(u)) ownImages.push(u); });
+  }
+  if (ownImages.length >= 3) return ownImages.slice(0, 6); // show up to 6 own images
+
+  // Fill remaining with stock photos
+  const picks = [...ownImages];
   const hash = projectId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  const picks: string[] = [];
   let idx = hash % STOCK_COVER_POOL.length;
-  while (picks.length < 3) {
+  while (picks.length < 3 && STOCK_COVER_POOL.length > 0) {
     const candidate = STOCK_COVER_POOL[idx % STOCK_COVER_POOL.length];
     if (!picks.includes(candidate)) picks.push(candidate);
     idx = (idx + 5) % STOCK_COVER_POOL.length;
@@ -170,13 +213,45 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProject, setNewProject] = useState<NewProjectDraft>(createNewProjectDraft(PROJECTS.length + 1));
   const [showArchived, setShowArchived] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [dragState, setDragState] = useState<{ projectId: string; gallery: GalleryKey; fromIndex: number } | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Feature 1: Project-level drag reorder
+  const [projectDragIdx, setProjectDragIdx] = useState<number | null>(null);
+  const [projectDragOverIdx, setProjectDragOverIdx] = useState<number | null>(null);
+  // Feature 5: Bulk image selection
+  const [selectedImages, setSelectedImages] = useState<Record<string, Set<string>>>({});
+  // Feature 10: Bulk project selection
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
+  // Tour
+  const [tourStep, setTourStep] = useState<number | null>(null);
+  // Auto-save timer
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const coverUploadTarget = useRef<string | null>(null);
   const devBypass = !isFirebaseConfigured || import.meta.env.VITE_DEV_ADMIN_BYPASS === 'true';
 
   const archiveCount = useMemo(() => projects.filter((p) => p.archived).length, [projects]);
-  const visibleProjects = useMemo(() => projects.filter((p) => (showArchived ? p.archived : !p.archived)), [projects, showArchived]);
+  const visibleProjects = useMemo(() => {
+    const filtered = projects.filter((p) => (showArchived ? p.archived : !p.archived));
+    if (!searchQuery.trim()) return filtered;
+    const q = searchQuery.toLowerCase();
+    return filtered.filter((p) =>
+      p.title.toLowerCase().includes(q) ||
+      p.location.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q)
+    );
+  }, [projects, showArchived, searchQuery]);
+
+  // Feature 4: Dashboard stats
+  const dashboardStats = useMemo(() => {
+    const active = projects.filter((p) => !p.archived);
+    const published = active.filter((p) => p.published).length;
+    const totalImages = projects.reduce((sum, p) => sum + p.galleries.finished.length + p.galleries.development.length, 0);
+    return { total: projects.length, active: active.length, published, archived: archiveCount, totalImages };
+  }, [projects, archiveCount]);
 
   const flash = useCallback((type: 'ok' | 'err', msg: string) => {
     setToast({ type, msg });
@@ -713,6 +788,298 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     setDeleteConfirm(null);
   }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, updateDraft]);
 
+  // ─── Move image between galleries ───
+  const handleMoveImage = useCallback(async (projectId: string, url: string, fromGallery: GalleryKey) => {
+    const toGallery: GalleryKey = fromGallery === 'finished' ? 'development' : 'finished';
+    const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    const nextGalleries: Project['galleries'] = {
+      finished: [...project.galleries.finished],
+      development: [...project.galleries.development],
+    };
+
+    const idx = nextGalleries[fromGallery].indexOf(url);
+    if (idx === -1) return;
+    nextGalleries[fromGallery].splice(idx, 1);
+    nextGalleries[toGallery].push(url);
+
+    updateDraft(projectId, (draft) => { draft.galleries = nextGalleries; });
+
+    if (devBypass) {
+      applyDevProjects((prev) => prev.map((p) => {
+        if (p.id !== projectId) return p;
+        return { ...p, galleries: nextGalleries, updatedAt: Date.now() };
+      }));
+      flash('ok', `Image moved to ${toGallery}`);
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
+        galleries: nextGalleries,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      flash('ok', `Image moved to ${toGallery}`);
+    } catch (err) {
+      reportError('Failed to move image', err, 'Could not move image');
+    }
+  }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, updateDraft]);
+
+  // ─── Reorder images within a gallery via drag & drop ───
+  const handleReorderImages = useCallback(async (projectId: string, gallery: GalleryKey, fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    const nextGalleries: Project['galleries'] = {
+      finished: [...project.galleries.finished],
+      development: [...project.galleries.development],
+    };
+
+    const arr = nextGalleries[gallery];
+    const [moved] = arr.splice(fromIndex, 1);
+    arr.splice(toIndex, 0, moved);
+
+    updateDraft(projectId, (draft) => { draft.galleries = nextGalleries; });
+
+    if (devBypass) {
+      applyDevProjects((prev) => prev.map((p) => {
+        if (p.id !== projectId) return p;
+        return { ...p, galleries: nextGalleries, updatedAt: Date.now() };
+      }));
+      flash('ok', 'Image order updated');
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
+        galleries: nextGalleries,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      flash('ok', 'Image order updated');
+    } catch (err) {
+      reportError('Failed to reorder images', err, 'Could not reorder images');
+    }
+  }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, updateDraft]);
+
+  // ─── Duplicate a project ───
+  const handleDuplicateProject = useCallback(async (sourceProject: Project) => {
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `project_${Date.now().toString(36)}`;
+    const activeCount = projects.filter((p) => !p.archived).length;
+    const cloned: Project = {
+      ...sourceProject,
+      id,
+      title: `${sourceProject.title} (Copy)`,
+      published: false,
+      displayOrder: activeCount + 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      archived: false,
+      galleries: {
+        finished: [...sourceProject.galleries.finished],
+        development: [...sourceProject.galleries.development],
+      },
+    };
+
+    if (devBypass) {
+      applyDevProjects((prev) => [...prev, cloned]);
+      flash('ok', 'Project duplicated');
+      setExpandedId(id);
+      return;
+    }
+
+    const docRef = doc(db, FIRESTORE_COLLECTION, id);
+    try {
+      await setDoc(docRef, {
+        title: cloned.title,
+        location: cloned.location,
+        category: cloned.category,
+        type: cloned.type,
+        subCategory: cloned.subCategory,
+        imageUrl: cloned.imageUrl,
+        galleries: cloned.galleries,
+        published: false,
+        description: cloned.description ?? '',
+        displayOrder: cloned.displayOrder,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isDeleted: false,
+      });
+      flash('ok', 'Project duplicated');
+      setExpandedId(id);
+    } catch (err) {
+      reportError('Failed to duplicate project', err, 'Could not duplicate project');
+    }
+  }, [applyDevProjects, devBypass, flash, projects, reportError]);
+
+  // ─── Feature 1: Project drag-and-drop reorder ───
+  const handleReorderProjects = useCallback(async (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const reordered = [...visibleProjects];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    const updates = reordered.map((p, i) => ({ id: p.id, displayOrder: i + 1 }));
+
+    if (devBypass) {
+      applyDevProjects((prev) => prev.map((p) => {
+        const u = updates.find((x) => x.id === p.id);
+        return u ? { ...p, displayOrder: u.displayOrder, updatedAt: Date.now() } : p;
+      }));
+      flash('ok', 'Project order updated');
+      return;
+    }
+    try {
+      await Promise.all(updates.map((u) =>
+        setDoc(doc(db, FIRESTORE_COLLECTION, u.id), { displayOrder: u.displayOrder, updatedAt: serverTimestamp() }, { merge: true })
+      ));
+      flash('ok', 'Project order updated');
+    } catch (err) {
+      reportError('Failed to reorder projects', err, 'Could not reorder');
+    }
+  }, [applyDevProjects, devBypass, flash, reportError, visibleProjects]);
+
+  // ─── Feature 2: Quick publish/unpublish toggle ───
+  const handleQuickTogglePublish = useCallback(async (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project || project.archived) return;
+    const nextPublished = !project.published;
+
+    if (devBypass) {
+      applyDevProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, published: nextPublished, updatedAt: Date.now() } : p));
+      flash('ok', nextPublished ? 'Published' : 'Unpublished');
+      return;
+    }
+    try {
+      await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), { published: nextPublished, updatedAt: serverTimestamp() }, { merge: true });
+      flash('ok', nextPublished ? 'Published' : 'Unpublished');
+    } catch (err) {
+      reportError('Toggle publish failed', err, 'Could not toggle');
+    }
+  }, [applyDevProjects, devBypass, flash, projects, reportError]);
+
+  // ─── Feature 5: Bulk image delete ───
+  const toggleImageSelection = useCallback((projectId: string, url: string) => {
+    setSelectedImages((prev) => {
+      const set = new Set(prev[projectId] ?? []);
+      if (set.has(url)) set.delete(url); else set.add(url);
+      return { ...prev, [projectId]: set };
+    });
+  }, []);
+
+  const handleBulkDeleteImages = useCallback(async (projectId: string, gallery: GalleryKey) => {
+    const urls = selectedImages[projectId];
+    if (!urls || urls.size === 0) return;
+    const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
+    if (!project) return;
+    const nextGalleries: Project['galleries'] = {
+      finished: project.galleries.finished.filter((u) => !urls.has(u)),
+      development: project.galleries.development.filter((u) => !urls.has(u)),
+    };
+    const cover = urls.has(project.imageUrl) ? (nextGalleries.finished[0] ?? nextGalleries.development[0] ?? '') : project.imageUrl;
+    updateDraft(projectId, (draft) => { draft.galleries = nextGalleries; draft.imageUrl = cover; });
+
+    if (devBypass) {
+      applyDevProjects((prev) => prev.map((p) => p.id !== projectId ? p : { ...p, galleries: nextGalleries, imageUrl: cover, updatedAt: Date.now() }));
+    } else {
+      try {
+        await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), { galleries: nextGalleries, imageUrl: cover, updatedAt: serverTimestamp() }, { merge: true });
+      } catch (err) { reportError('Bulk delete failed', err, 'Could not delete images'); return; }
+    }
+    flash('ok', `${urls.size} image${urls.size > 1 ? 's' : ''} deleted`);
+    setSelectedImages((prev) => { const next = { ...prev }; delete next[projectId]; return next; });
+  }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, selectedImages, updateDraft]);
+
+  // ─── Feature 6: Export JSON backup ───
+  const handleExportJSON = useCallback(() => {
+    const data = JSON.stringify(projects, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `shapenshades-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    flash('ok', 'Backup downloaded');
+  }, [flash, projects]);
+
+  // ─── Feature 10: Bulk publish/unpublish ───
+  const handleBulkPublish = useCallback(async (published: boolean) => {
+    const ids = [...selectedProjectIds];
+    if (ids.length === 0) return;
+    if (devBypass) {
+      applyDevProjects((prev) => prev.map((p) => ids.includes(p.id) && !p.archived ? { ...p, published, updatedAt: Date.now() } : p));
+    } else {
+      try {
+        await Promise.all(ids.map((id) => setDoc(doc(db, FIRESTORE_COLLECTION, id), { published, updatedAt: serverTimestamp() }, { merge: true })));
+      } catch (err) { reportError('Bulk action failed', err, 'Could not update projects'); return; }
+    }
+    flash('ok', `${ids.length} project${ids.length > 1 ? 's' : ''} ${published ? 'published' : 'hidden'}`);
+    setSelectedProjectIds(new Set());
+  }, [applyDevProjects, devBypass, flash, reportError, selectedProjectIds]);
+
+  // ─── Auto-save: debounced save on draft changes ───
+  const hasDirtyDrafts = useMemo(() => Object.keys(drafts).length > 0, [drafts]);
+  useEffect(() => {
+    if (!hasDirtyDrafts) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      Object.keys(drafts).forEach((projectId) => {
+        const d = drafts[projectId];
+        if (d && d.title.trim() && d.location.trim()) {
+          handleSaveProject(projectId);
+        }
+      });
+    }, 2000); // 2 second debounce
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [drafts, hasDirtyDrafts, handleSaveProject]);
+
+  // Auto-expand first project when tour reaches expanded-project steps
+  useEffect(() => {
+    if (tourStep === null) return;
+    const step = TOUR_STEPS[tourStep];
+    if (!step) return;
+    if (TOUR_EXPANDED_TARGETS.has(step.target) && visibleProjects.length > 0) {
+      const firstId = visibleProjects[0].id;
+      if (expandedId !== firstId) {
+        setExpandedId(firstId);
+        updateDraft(firstId, (d) => d);
+      }
+    }
+  }, [tourStep, visibleProjects, expandedId, updateDraft]);
+
+  // ─── Feature 8: Keyboard shortcuts ───
+  const allGalleryImages = useMemo(() => {
+    const imgs: string[] = [];
+    projects.forEach((p) => { imgs.push(...p.galleries.finished, ...p.galleries.development); });
+    return imgs;
+  }, [projects]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (tourStep !== null) { setTourStep(null); return; }
+        if (imagePreview) { setImagePreview(null); return; }
+        if (newProjectOpen) { setNewProjectOpen(false); return; }
+        if (deleteConfirm) { setDeleteConfirm(null); return; }
+        if (projectConfirm) { setProjectConfirm(null); return; }
+        if (bulkRestoreConfirm) { setBulkRestoreConfirm(false); return; }
+      }
+      if (imagePreview && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        const idx = allGalleryImages.indexOf(imagePreview);
+        if (idx === -1) return;
+        const next = e.key === 'ArrowRight'
+          ? (idx + 1) % allGalleryImages.length
+          : (idx - 1 + allGalleryImages.length) % allGalleryImages.length;
+        setImagePreview(allGalleryImages[next]);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [tourStep, imagePreview, newProjectOpen, deleteConfirm, projectConfirm, bulkRestoreConfirm, allGalleryImages]);
+
   const handleSetCover = useCallback(async (projectId: string, url: string) => {
     updateDraft(projectId, (draft) => { draft.imageUrl = url; });
 
@@ -1162,33 +1529,36 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 pt-28 pb-20 px-4 md:px-8 lg:px-16">
+    <div className="w-full min-h-screen bg-[#F8F9FB] pt-28 pb-32 px-4 md:px-8 lg:px-12">
       {toast && (
-        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-lg shadow-lg text-sm font-medium animate-fade-in ${
-          toast.type === 'ok' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-        }`}>
+        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-md border text-sm font-semibold animate-fade-in-up flex items-center gap-3 ${toast.type === 'ok' ? 'bg-white/80 border-emerald-100 text-emerald-800' : 'bg-white/80 border-red-100 text-red-800'
+          }`}>
+          <div className={`w-2 h-2 rounded-full ${toast.type === 'ok' ? 'bg-emerald-500' : 'bg-red-500'}`} />
           {toast.msg}
         </div>
       )}
 
+      {/* ──── Modals (Delete, Archive, Restore) ──── */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <h3 className="text-lg font-semibold">Delete this image?</h3>
-            <div className="w-full h-32 rounded-lg overflow-hidden bg-gray-100">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-5 border border-white/20">
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-gray-900">Delete this image?</h3>
+              <p className="text-sm text-gray-500">This action cannot be undone. It will be permanently removed.</p>
+            </div>
+            <div className="aspect-video rounded-xl overflow-hidden bg-gray-100 border border-gray-100 shadow-inner">
               <img src={deleteConfirm.url} alt="" className="w-full h-full object-cover" />
             </div>
-            <p className="text-sm text-gray-500">This action cannot be undone.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50"
+                className="flex-1 py-3.5 rounded-xl border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleRemoveImage(deleteConfirm.projectId, deleteConfirm.url)}
-                className="flex-1 py-3 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700"
+                className="flex-1 py-3.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 shadow-lg shadow-red-200 transition-all hover:scale-[1.02]"
               >
                 Delete
               </button>
@@ -1198,22 +1568,27 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       )}
 
       {projectConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <h3 className="text-lg font-semibold">Archive this project?</h3>
-            <p className="text-sm text-gray-500">
-              The project will disappear from the live site. Switch to the archived view to bring it back later.
-            </p>
-            <div className="flex gap-3">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl space-y-6 border border-white/20">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-2">
+              <ArchiveIcon size={24} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-gray-900">Archive Project?</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                This project will be hidden from your live site. You can view and restore it anytime from the "Archived" filter.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setProjectConfirm(null)}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50"
+                className="flex-1 py-3.5 rounded-xl border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteProject}
-                className="flex-1 py-3 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700"
+                className="flex-1 py-3.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 shadow-lg shadow-red-200 transition-all hover:scale-[1.02]"
               >
                 Archive
               </button>
@@ -1223,24 +1598,29 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       )}
 
       {bulkRestoreConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <h3 className="text-lg font-semibold">Restore all archived projects?</h3>
-            <p className="text-sm text-gray-500">
-              Every archived project will be restored and moved back to the active list.
-            </p>
-            <div className="flex gap-3">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl space-y-6 border border-white/20">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-2">
+              <RefreshCw size={24} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-gray-900">Restore All?</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                This will move all archived projects back to your active list. They will be visible in your dashboard again.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setBulkRestoreConfirm(false)}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50"
+                className="flex-1 py-3.5 rounded-xl border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRestoreAllArchived}
-                className="flex-1 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+                className="flex-1 py-3.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 shadow-lg transition-all hover:scale-[1.02]"
               >
-                Restore all
+                Restore All
               </button>
             </div>
           </div>
@@ -1248,209 +1628,293 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       )}
 
       {newProjectOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 animate-fade-in">
-          <form onSubmit={handleCreateProject} className="bg-white rounded-2xl p-6 md:p-8 w-full max-w-lg shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Create New Project</h2>
-              <button type="button" onClick={() => setNewProjectOpen(false)} className="p-2 rounded-full hover:bg-gray-100">
-                <X size={16} />
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <form onSubmit={handleCreateProject} className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl space-y-8 border border-white/20 relative overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between relative z-10">
+              <div>
+                <h2 className="text-2xl font-bold font-serif-display text-gray-900">Create New Project</h2>
+                <p className="text-sm text-gray-500 mt-1">Start fresh with a new portfolio entry</p>
+              </div>
+              <button type="button" onClick={() => setNewProjectOpen(false)} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Project Title</label>
-              <input
-                value={newProject.title}
-                onChange={(e) => setNewProject((prev) => ({ ...prev, title: e.target.value }))}
-                required
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-              />
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Location</label>
-              <input
-                value={newProject.location}
-                onChange={(e) => setNewProject((prev) => ({ ...prev, location: e.target.value }))}
-                required
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-              />
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Category Label</label>
-              <input
-                value={newProject.category}
-                onChange={(e) => setNewProject((prev) => ({ ...prev, category: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Type</label>
-                <select
-                  value={newProject.type}
-                  onChange={(e) => setNewProject((prev) => ({ ...prev, type: e.target.value as Project['type'] }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                >
-                  {TYPE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">Title</label>
+                  <input
+                    value={newProject.title}
+                    onChange={(e) => setNewProject((prev) => ({ ...prev, title: e.target.value }))}
+                    required
+                    placeholder="e.g. Modern Villa"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">Location</label>
+                  <input
+                    value={newProject.location}
+                    onChange={(e) => setNewProject((prev) => ({ ...prev, location: e.target.value }))}
+                    required
+                    placeholder="e.g. Beverly Hills, CA"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">Category Tag</label>
+                  <input
+                    value={newProject.category}
+                    onChange={(e) => setNewProject((prev) => ({ ...prev, category: e.target.value }))}
+                    placeholder="e.g. Residential"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white"
+                  />
+                </div>
               </div>
-              <div className="space-y-3">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Subcategory</label>
-                <select
-                  value={newProject.subCategory}
-                  onChange={(e) => setNewProject((prev) => ({ ...prev, subCategory: e.target.value as Project['subCategory'] }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                >
-                  {SUBCATEGORY_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
+
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">Type</label>
+                  <div className="relative">
+                    <select
+                      value={newProject.type}
+                      onChange={(e) => setNewProject((prev) => ({ ...prev, type: e.target.value as Project['type'] }))}
+                      className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white cursor-pointer"
+                    >
+                      {TYPE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">Subcategory</label>
+                  <div className="relative">
+                    <select
+                      value={newProject.subCategory}
+                      onChange={(e) => setNewProject((prev) => ({ ...prev, subCategory: e.target.value as Project['subCategory'] }))}
+                      className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white cursor-pointer"
+                    >
+                      {SUBCATEGORY_OPTIONS.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">Visibility</label>
+                  <label className="flex items-center gap-3 p-3.5 border border-gray-200 rounded-xl bg-gray-50/50 cursor-pointer hover:bg-gray-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={newProject.published}
+                      onChange={(e) => setNewProject((prev) => ({ ...prev, published: e.target.checked }))}
+                      className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Publish immediately to live site</span>
+                  </label>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Display Order</label>
-              <input
-                type="number"
-                value={newProject.displayOrder ?? ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  const parsed = value === '' ? null : Number(value);
-                  setNewProject((prev) => ({
-                    ...prev,
-                    displayOrder: parsed === null || Number.isNaN(parsed) ? null : parsed,
-                  }));
-                }}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-              />
-              <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                <input
-                  type="checkbox"
-                  checked={newProject.published}
-                  onChange={(e) => setNewProject((prev) => ({ ...prev, published: e.target.checked }))}
-                  className="rounded border-gray-300 text-black focus:ring-black"
-                />
-                Publish immediately
-              </label>
-              <textarea
-                value={newProject.description}
-                onChange={(e) => setNewProject((prev) => ({ ...prev, description: e.target.value }))}
-                rows={3}
-                placeholder="Optional description"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40 resize-none"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-2">
+            <div className="pt-2 flex gap-3 relative z-10">
               <button
                 type="button"
                 onClick={() => setNewProjectOpen(false)}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50"
+                className="flex-1 py-4 rounded-xl border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 py-3 rounded-xl bg-black text-white text-sm font-medium hover:opacity-90"
+                className="flex-[2] py-4 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 shadow-xl shadow-black/10 transition-all hover:scale-[1.01]"
               >
                 Create Project
               </button>
             </div>
+
+            {/* Background decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gray-50 rounded-full blur-3xl -z-0 translate-x-1/2 -translate-y-1/2" />
           </form>
         </div>
       )}
 
       {uploading && (
-        <div className="fixed inset-0 z-40 bg-black/30 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-6 flex flex-col items-center gap-3 shadow-2xl">
-            <Loader2 size={32} className="animate-spin" />
-            <p className="text-sm font-medium">Uploading...</p>
+        <div className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-full border-4 border-gray-100 border-t-black animate-spin" />
+            </div>
+            <p className="text-sm font-semibold tracking-wide">Uploading Assets...</p>
           </div>
         </div>
       )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          handleFileUpload(e.target.files);
-        }}
-      />
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileUpload(e.target.files)} />
+      <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCoverFileUpload(e.target.files)} />
 
-      <input
-        ref={coverInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          handleCoverFileUpload(e.target.files);
-        }}
-      />
-
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 rounded-2xl border border-gray-200 bg-white/90 shadow-sm px-4 py-3 sticky top-0 z-30 backdrop-blur">
-          <div className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-serif-display">Manage Projects</h1>
-            <p className="text-sm text-gray-500">Add new work, curate galleries, and control what is live.</p>
-            <div className="flex items-center gap-3">
-              <span className="text-xs uppercase tracking-[0.3em] text-gray-400">{loadingProjects ? 'Syncing…' : 'Up to date'}</span>
-              <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${devBypass ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-emerald-300 bg-emerald-50 text-emerald-700'}`}>
-                {devBypass ? 'Local demo (no Firebase)' : 'Live Firebase'}
-              </span>
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* ──── SECTION 1: Header & Controls ──── */}
+        <div className="sticky top-4 z-[40] bg-white/80 backdrop-blur-xl border border-white/40 shadow-sm rounded-3xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-black text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg shadow-black/20">
+              S
+            </div>
+            <div>
+              <h1 className="text-xl font-bold font-serif-display tracking-tight text-gray-900">Admin Console</h1>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  <div className={`w-1.5 h-1.5 rounded-full ${loadingProjects ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-500'}`} />
+                  {loadingProjects ? 'Syncing...' : 'Online'}
+                </span>
+                {devBypass && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-100 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                    Dev Mode
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
             <button
-              onClick={() => {
-                setExpandedId(null);
-                setShowArchived((prev) => !prev);
-              }}
-              disabled={!showArchived && archiveCount === 0}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium border ${
-                showArchived
-                  ? 'border-black bg-black text-white hover:opacity-90'
-                  : archiveCount === 0
-                    ? 'border-gray-200 text-gray-300 cursor-not-allowed'
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
+              data-tour="tour-btn"
+              onClick={() => setTourStep(0)}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center gap-2"
             >
-              {showArchived ? 'Show active' : `Archived (${archiveCount})`}
+              <HelpCircle size={14} /> Guide
             </button>
-            {showArchived && archiveCount > 0 && (
-              <button
-                onClick={() => setBulkRestoreConfirm(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-              >
-                Restore all archived
-              </button>
-            )}
-            <button
-              onClick={openNewProjectModal}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-xs font-medium rounded-xl hover:opacity-90"
-            >
-              <Plus size={14} />
-              New Project
-            </button>
-            <span className="text-xs text-gray-400 truncate max-w-[160px]">{user.email}</span>
+            <div className="h-6 w-px bg-gray-200 mx-1" />
+            <span className="text-xs font-medium text-gray-500 px-2 truncate max-w-[120px] hidden sm:block">
+              {user.email}
+            </span>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-medium hover:bg-gray-50"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors whitespace-nowrap"
             >
               Sign Out
+            </button>
+            <button
+              data-tour="new-project-btn"
+              onClick={openNewProjectModal}
+              className="ml-2 px-5 py-2.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 shadow-lg shadow-black/20 hover:scale-[1.02] transition-all whitespace-nowrap flex items-center gap-2"
+            >
+              <Plus size={16} strokeWidth={3} />
+              <span className="hidden sm:inline">New Project</span>
+              <span className="sm:hidden">New</span>
             </button>
           </div>
         </div>
 
+        {/* ──── SECTION 2: Dashboard Widgets ──── */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Stats Column */}
+          <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4" data-tour="dashboard-stats">
+            {[
+              { label: 'Total Projects', value: dashboardStats.total, icon: LayoutGrid, bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100' },
+              { label: 'Live & Active', value: dashboardStats.published, icon: Globe, bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100' },
+              { label: 'Drafts', value: dashboardStats.active - dashboardStats.published, icon: Edit3, bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100' },
+              { label: 'Total Images', value: dashboardStats.totalImages, icon: ImageIcon, bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100' },
+            ].map((stat, i) => {
+              const Icon = stat.icon || LayoutGrid; // Fallback
+              return (
+                <div key={i} className={`relative overflow-hidden rounded-3xl p-5 border ${stat.border} ${stat.bg} transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]`}>
+                  <div className="relative z-10 flex flex-col h-full justify-between">
+                    <div className={`w-8 h-8 rounded-full bg-white/60 flex items-center justify-center mb-3 ${stat.text}`}>
+                      <Icon size={16} />
+                    </div>
+                    <div>
+                      <p className="text-3xl font-bold text-gray-900 tracking-tight">{stat.value}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mt-1">{stat.label}</p>
+                    </div>
+                  </div>
+                  {/* Decor */}
+                  <Icon className={`absolute -right-4 -bottom-4 z-0 opacity-[0.07] ${stat.text}`} size={100} />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quick Find Widget */}
+          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm space-y-4 flex flex-col justify-center">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Quick Actions</h3>
+              <button
+                data-tour="export-btn"
+                onClick={handleExportJSON}
+                className="p-2 text-gray-400 hover:text-black hover:bg-gray-50 rounded-lg transition-colors"
+                title="Export Backup"
+              >
+                <Download size={16} />
+              </button>
+            </div>
+
+            <div className="relative group" data-tour="search-bar">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Find a project..."
+                className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white focus:border-gray-200 transition-all placeholder:text-gray-400"
+              />
+            </div>
+
+            <button
+              data-tour="archive-toggle"
+              onClick={() => {
+                setExpandedId(null);
+                setShowArchived((prev) => !prev);
+              }}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border transition-all ${showArchived
+                ? 'bg-gray-900 text-white border-gray-900'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                }`}
+            >
+              {showArchived ? <RefreshCw size={14} className="animate-spin-slow" /> : <ArchiveIcon size={14} />}
+              {showArchived ? 'View Active Projects' : `View Archive (${archiveCount})`}
+            </button>
+          </div>
+        </div>
+
+
+
+        {/* ──── Alerts (only visible when relevant) ──── */}
+
+        {/* ──── Floating Bulk Actions ──── */}
+        {selectedProjectIds.size > 0 && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+            <div className="bg-gray-900 text-white p-2 rounded-2xl shadow-2xl flex items-center gap-2 pr-4 border border-gray-700/50">
+              <div className="bg-gray-800 px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-2">
+                <CheckSquare size={14} className="text-blue-400" />
+                {selectedProjectIds.size} Selected
+              </div>
+              <div className="h-4 w-px bg-gray-700 mx-1" />
+              <button onClick={() => handleBulkPublish(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors">
+                <Eye size={14} /> Publish
+              </button>
+              <button onClick={() => handleBulkPublish(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">
+                <EyeOff size={14} /> Hide
+              </button>
+              <div className="h-4 w-px bg-gray-700 mx-1" />
+              <button onClick={() => setSelectedProjectIds(new Set())} className="text-xs font-medium text-gray-400 hover:text-white px-2">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {diagnostics && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 shadow-sm">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 shadow-sm mx-auto max-w-2xl">
             <div className="flex items-start gap-3">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-700">Debug</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-700 mt-1">Debug</div>
               <div className="flex-1">
                 <p className="text-sm font-semibold">{diagnostics.context}</p>
                 <p className="text-xs text-amber-700/80">{new Date(diagnostics.time).toLocaleTimeString()} — {diagnostics.detail}</p>
-                <p className="text-[11px] text-amber-700/70">See browser console for stack traces and more detail.</p>
               </div>
               <button
                 onClick={() => setDiagnostics(null)}
@@ -1462,356 +1926,797 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           </div>
         )}
 
-        {visibleProjects.length === 0 ? (
-          <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-12 text-center space-y-2">
-            <p className="text-sm text-gray-500">
-              {showArchived ? 'No archived projects at the moment.' : 'No projects yet. Create one to get started.'}
-            </p>
-            {!showArchived && (
-              <button
-                onClick={openNewProjectModal}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-xs font-medium rounded-xl hover:opacity-90"
-              >
-                <Plus size={14} />
-                Create your first project
-              </button>
+        {/* ──── SECTION 3: Projects List ──── */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <h2 className="text-xs font-bold uppercase tracking-[0.25em] text-gray-400">
+              {showArchived ? 'Archived Projects' : 'Project Portfolio'} ({visibleProjects.length})
+            </h2>
+            {!showArchived && visibleProjects.length > 1 && (
+              <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium bg-gray-50 px-2 py-1 rounded-lg">
+                <GripVertical size={12} /> Drag to reorder
+              </span>
             )}
           </div>
-        ) : (
-          <div className="space-y-4">
-            {visibleProjects.map((project) => {
-              const isOpen = expandedId === project.id;
-              const draft = drafts[project.id] ?? project;
-              const activeTab = getActiveGallery(project.id);
-              const galleryImages = draft.galleries[activeTab];
-              const finishedCount = draft.galleries.finished.length;
-              const developmentCount = draft.galleries.development.length;
-              const metadataDirty = hasMetadataChanges(project.id);
-              const isArchived = project.archived ?? false;
-              const statusLabel = isArchived ? 'Archived' : draft.published ? 'Published' : 'Hidden';
-              const statusClass = isArchived
-                ? 'bg-red-100 text-red-600'
-                : draft.published
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-gray-100 text-gray-500';
 
-              return (
-                <div key={project.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                  <button
-                    onClick={() => {
-                      const next = isOpen ? null : project.id;
-                      setExpandedId(next);
-                      if (!isOpen) {
-                        updateDraft(project.id, (d) => d);
-                      }
+          {visibleProjects.length === 0 ? (
+            <div className="bg-white border-2 border-dashed border-gray-200 rounded-3xl p-16 text-center space-y-4 hover:border-gray-300 transition-colors">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-300">
+                <FilePlus size={32} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {showArchived ? 'No archived projects' : 'Start Your Portfolio'}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">
+                  {showArchived ? 'Archived projects will appear here.' : 'Create your first project to showcase your work to the world.'}
+                </p>
+              </div>
+              {!showArchived && (
+                <button
+                  onClick={openNewProjectModal}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white text-sm font-bold rounded-xl hover:bg-gray-800 shadow-xl shadow-black/10 transition-all hover:scale-[1.02] mt-2"
+                >
+                  <Plus size={16} strokeWidth={3} />
+                  Create Project
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {visibleProjects.map((project, projectIndex) => {
+                const isOpen = expandedId === project.id;
+                const draft = drafts[project.id] ?? project;
+                const activeTab = getActiveGallery(project.id);
+                const galleryImages = draft.galleries[activeTab];
+                const finishedCount = draft.galleries.finished.length;
+                const developmentCount = draft.galleries.development.length;
+                const metadataDirty = hasMetadataChanges(project.id);
+                const isArchived = project.archived ?? false;
+                const statusLabel = isArchived ? 'Archived' : draft.published ? 'Live' : 'Hidden';
+                const statusClass = isArchived
+                  ? 'bg-red-50 text-red-600 border-red-100'
+                  : draft.published
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                    : 'bg-gray-50 text-gray-500 border-gray-100';
+
+                const isProjectDragging = projectDragIdx === projectIndex;
+                const isProjectDragOver = projectDragOverIdx === projectIndex;
+                const isSelected = selectedProjectIds.has(project.id);
+
+                return (
+                  <div
+                    data-tour={projectIndex === 0 ? 'project-card-0' : undefined}
+                    key={project.id}
+
+                    onDragOver={(e) => {
+                      if (projectDragIdx === null) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      setProjectDragOverIdx(projectIndex);
                     }}
-                    className="w-full flex items-center gap-4 p-4 text-left"
+                    onDragLeave={() => { if (projectDragOverIdx === projectIndex) setProjectDragOverIdx(null); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (projectDragIdx !== null) handleReorderProjects(projectDragIdx, projectIndex);
+                      setProjectDragIdx(null);
+                      setProjectDragOverIdx(null);
+                    }}
+                    onDragEnd={() => { setProjectDragIdx(null); setProjectDragOverIdx(null); }}
+                    className={`group bg-white rounded-3xl border transition-all duration-300 will-change-transform ${isOpen
+                      ? 'col-span-full shadow-2xl ring-1 ring-black/5 scale-[1.005] z-20'
+                      : 'shadow-sm hover:shadow-xl hover:translate-y-[-4px] hover:border-gray-300'
+                      } ${isProjectDragging ? 'opacity-40 scale-95 border-dashed border-gray-400 cursor-grabbing' : ''
+                      } ${isProjectDragOver ? 'border-blue-500 ring-2 ring-blue-200 scale-[1.02] z-10' : 'border-gray-100'
+                      } ${isSelected ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/10' : ''
+                      }`}
                   >
-                    <img src={draft.imageUrl || FALLBACK_IMAGE} alt="" className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] tracking-[0.2em] uppercase text-gray-400">{draft.type} — {draft.subCategory}</p>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusClass}`}>
-                          {statusLabel}
-                        </span>
-                      </div>
-                      <h3 className="text-base md:text-lg font-semibold truncate">{draft.location}</h3>
-                      <p className="text-xs text-gray-400">{finishedCount + developmentCount} total images</p>
-                    </div>
-                    {isOpen ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
-                  </button>
+                    {/* Collapsed Card View */}
+                    <div className="relative">
+                      {/* Project Image Header */}
+                      <div className={`relative overflow-hidden ${isOpen ? 'h-48' : 'h-48'}`}>
+                        {/* Image Gradient Overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent z-10 transition-opacity duration-300 group-hover:via-black/20" />
 
-                  {isOpen && (
-                    <div className="border-t border-gray-100 p-4 md:p-6 space-y-6 animate-fade-in">
-                      {isArchived && (
-                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                          This project is archived. Restore it before publishing or showing it on the site.
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-3">
-                          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Project Title</label>
-                          <input
-                            value={draft.title}
-                            onChange={(e) => updateDraftField(project.id, 'title', e.target.value)}
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                          />
-                          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Location</label>
-                          <input
-                            value={draft.location}
-                            onChange={(e) => updateDraftField(project.id, 'location', e.target.value)}
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                          />
-                          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Category Label</label>
-                          <input
-                            value={draft.category}
-                            onChange={(e) => updateDraftField(project.id, 'category', e.target.value)}
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                          />
-                        </div>
-                        <div className="space-y-3">
-                          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Type</label>
-                          <select
-                            value={draft.type}
-                            onChange={(e) => updateDraftField(project.id, 'type', e.target.value as Project['type'])}
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                          >
-                            {TYPE_OPTIONS.map((option) => (
-                              <option key={option} value={option}>{option}</option>
-                            ))}
-                          </select>
-                          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Subcategory</label>
-                          <select
-                            value={draft.subCategory}
-                            onChange={(e) => updateDraftField(project.id, 'subCategory', e.target.value as Project['subCategory'])}
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                          >
-                            {SUBCATEGORY_OPTIONS.map((option) => (
-                              <option key={option} value={option}>{option}</option>
-                            ))}
-                          </select>
-                          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Display Order</label>
-                          <input
-                            type="number"
-                            value={draft.displayOrder ?? ''}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              const parsed = value === '' ? null : Number(value);
-                              updateDraftField(project.id, 'displayOrder', parsed === null || Number.isNaN(parsed) ? null : parsed);
-                            }}
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                          />
-                          <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                            <input
-                              type="checkbox"
-                              checked={draft.published}
-                              onChange={(e) => updateDraftField(project.id, 'published', e.target.checked)}
-                              className="rounded border-gray-300 text-black focus:ring-black"
-                            />
-                            Visible on site
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Project Notes</label>
-                        <textarea
-                          value={draft.description ?? ''}
-                          onChange={(e) => updateDraftField(project.id, 'description', e.target.value)}
-                          rows={4}
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40 resize-none"
+                        <img
+                          src={draft.imageUrl || FALLBACK_IMAGE}
+                          alt={draft.title || draft.location}
+                          draggable={false}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 select-none"
+                          loading="lazy"
                         />
-                      </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          disabled={!metadataDirty}
-                          onClick={() => handleSaveProject(project.id)}
-                          className={`px-4 py-2 rounded-xl text-xs font-medium ${metadataDirty ? 'bg-black text-white hover:opacity-90' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
-                        >
-                          Save details
-                        </button>
-                        <button
-                          disabled={!metadataDirty}
-                          onClick={() => handleDiscardProject(project.id)}
-                          className={`px-4 py-2 rounded-xl text-xs font-medium border ${metadataDirty ? 'border-gray-200 text-gray-600 hover:bg-gray-50' : 'border-gray-100 text-gray-300 cursor-not-allowed'}`}
-                        >
-                          Discard changes
-                        </button>
-                        {isArchived ? (
-                          <button
-                            onClick={() => handleRestoreProject(project.id)}
-                            className="ml-auto px-4 py-2 rounded-xl text-xs font-medium border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                          >
-                            Restore project
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setProjectConfirm(project.id)}
-                            className="ml-auto px-4 py-2 rounded-xl text-xs font-medium border border-red-200 text-red-600 hover:bg-red-50"
-                          >
-                            Archive project
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          {GALLERY_TABS.map((tab) => (
-                            <button
-                              key={tab}
-                              onClick={() => setActiveGalleryTab((prev) => ({ ...prev, [project.id]: tab }))}
-                              className={`px-3 py-1.5 text-xs font-medium rounded-xl border ${activeTab === tab ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-                            >
-                              {tab === 'finished' ? `Finished (${finishedCount})` : `Development (${developmentCount})`}
-                            </button>
-                          ))}
-                          <span className="ml-auto text-xs uppercase tracking-[0.3em] text-gray-400">
-                            {activeTab === 'finished' ? 'Client-ready visuals' : 'On-site progress'}
+                        {/* Top Badges */}
+                        <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-white/90 text-gray-900 backdrop-blur-md shadow-sm">
+                            {draft.type}
                           </span>
                         </div>
 
-                        <div className="space-y-3">
-                          <button
-                            onClick={() => {
-                              uploadTargetRef.current = { projectId: project.id, gallery: activeTab };
-                              setUploadTarget({ projectId: project.id, gallery: activeTab });
-                              fileInputRef.current?.click();
-                            }}
-                            className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-black hover:text-black transition-colors active:bg-gray-50"
-                          >
-                            <Upload size={20} />
-                            <span>Upload to {activeTab === 'finished' ? 'Finished' : 'Development'} gallery</span>
-                          </button>
+                        <div className="absolute top-4 right-4 z-20">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border backdrop-blur-md shadow-sm flex items-center gap-1.5 ${statusClass}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${isArchived ? 'bg-red-500' : draft.published ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                            {statusLabel}
+                          </span>
+                        </div>
 
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={urlDrafts[project.id] ?? ''}
-                              onChange={(e) => setUrlDrafts((prev) => ({ ...prev, [project.id]: e.target.value }))}
-                              placeholder="Or paste image URL"
-                              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/40"
-                            />
-                            <button
-                              onClick={() => handleAddImageUrl(project.id)}
-                              className="px-4 py-3 bg-black text-white rounded-xl text-sm flex items-center gap-1 hover:opacity-90 active:opacity-70"
-                            >
-                              <Plus size={16} />
-                            </button>
-                          </div>
-
-                          <button
-                            onClick={() => handleResetCover(project.id)}
-                            className="px-3 py-2 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 active:bg-gray-100"
-                          >
-                            Reset cover
-                          </button>
-
-                          <div className="space-y-3 w-full">
-                            <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-gray-500">Cover image</p>
-
-                            {/* Current cover preview */}
-                            {draft.imageUrl && (
-                              <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                                <img src={draft.imageUrl} alt="Current cover" className="w-full h-32 object-cover" />
-                                <span className="absolute top-2 left-2 bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded">CURRENT COVER</span>
-                              </div>
-                            )}
-
-                            {/* Upload cover from computer */}
-                            <button
-                              onClick={() => {
-                                coverUploadTarget.current = project.id;
-                                coverInputRef.current?.click();
-                              }}
-                              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-xs text-gray-500 hover:border-black hover:text-black transition-colors active:bg-gray-50"
-                            >
-                              <Upload size={16} />
-                              <span>Upload cover from computer</span>
-                            </button>
-
-                            {/* Paste cover URL */}
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={urlDrafts[`cover_${project.id}`] ?? ''}
-                                onChange={(e) => setUrlDrafts((prev) => ({ ...prev, [`cover_${project.id}`]: e.target.value }))}
-                                placeholder="Or paste cover image URL"
-                                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/40"
-                              />
-                              <button
-                                onClick={async () => {
-                                  const url = (urlDrafts[`cover_${project.id}`] ?? '').trim();
-                                  if (!url) return;
-                                  try { new URL(url); } catch { flash('err', 'Please enter a valid URL'); return; }
-                                  await handleSetCover(project.id, url);
-                                  setUrlDrafts((prev) => ({ ...prev, [`cover_${project.id}`]: '' }));
-                                }}
-                                className="px-3 py-2.5 bg-black text-white rounded-xl text-xs flex items-center gap-1 hover:opacity-90 active:opacity-70"
-                              >
-                                Set
-                              </button>
-                            </div>
-
-                            {/* Suggested covers */}
-                            <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-gray-400 pt-1">Suggestions</p>
-                            <div className="grid grid-cols-3 gap-2">
-                              {suggestCovers(project.id).map((coverUrl, idx) => {
-                                const isCurrent = draft.imageUrl === coverUrl;
-                                return (
-                                  <button
-                                    key={idx}
-                                    onClick={() => handleSetCover(project.id, coverUrl)}
-                                    className={`relative rounded-lg overflow-hidden border ${isCurrent ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-black'}`}
-                                    type="button"
-                                  >
-                                    <img src={coverUrl} alt="Suggested cover" className="w-full h-20 object-cover" />
-                                    {isCurrent && (
-                                      <span className="absolute top-1 left-1 bg-emerald-600 text-white text-[9px] font-bold px-2 py-0.5 rounded">Active</span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
+                        {/* Bottom Text */}
+                        <div className="absolute bottom-0 left-0 right-0 p-5 z-20 text-white">
+                          <h3 className="text-xl font-bold font-serif-display leading-tight mb-1 text-shadow-sm truncate">{draft.location}</h3>
+                          <p className="text-xs font-medium text-white/80 uppercase tracking-wider truncate">{draft.subCategory}</p>
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-gray-500">
-                          {activeTab === 'finished' ? 'Finished Gallery' : 'Development Gallery'} ({galleryImages.length})
-                        </p>
-                        {galleryImages.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-8 text-gray-300">
-                            <Image size={32} />
-                            <p className="text-sm mt-2">No images yet</p>
+                      {/* Card Content (Visible only when NOT expanded or always? Let's keep it minimal) */}
+                      {!isOpen && (
+                        <div className="p-5 flex flex-col gap-4">
+                          {/* Stats */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-gray-50 rounded-xl p-3 flex flex-col items-center justify-center border border-gray-100">
+                              <span className="text-lg font-bold text-gray-900">{finishedCount}</span>
+                              <span className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">Finished</span>
+                            </div>
+                            <div className="bg-gray-50 rounded-xl p-3 flex flex-col items-center justify-center border border-gray-100">
+                              <span className="text-lg font-bold text-gray-900">{developmentCount}</span>
+                              <span className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">WIP</span>
+                            </div>
                           </div>
-                        ) : (
-                          <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                            {galleryImages.map((url, idx) => (
-                              <div key={idx} className="relative group rounded-lg overflow-hidden bg-gray-100 aspect-square">
-                                <img src={url} alt="" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                                  <button
-                                    onClick={() => handleSetCover(project.id, url)}
-                                    className="p-2 bg-white rounded-full shadow-lg hover:scale-110 transition-transform"
-                                    title="Set as cover"
+
+                          {/* Actions Footer */}
+                          <div className="flex items-center justify-between pt-2">
+                            <div className="flex items-center gap-3">
+                              {!showArchived && (
+                                <>
+                                  <label className="relative flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 cursor-pointer transition-colors" title="Select">
+                                    <input
+                                      data-tour={projectIndex === 0 ? 'select-checkbox-0' : undefined}
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedProjectIds((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(project.id)) next.delete(project.id); else next.add(project.id);
+                                          return next;
+                                        });
+                                      }}
+                                      className="appearance-none w-5 h-5 rounded border-2 border-gray-300 checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer"
+                                    />
+                                    <CheckSquare size={14} className={`absolute pointer-events-none text-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
+                                  </label>
+
+                                  <div
+                                    draggable={!showArchived}
+                                    onDragStart={(e) => {
+                                      if (showArchived) { e.preventDefault(); return; }
+                                      e.dataTransfer.effectAllowed = 'move';
+                                      setProjectDragIdx(projectIndex);
+                                      const card = e.currentTarget.closest('.group');
+                                      if (card) e.dataTransfer.setDragImage(card, 0, 0);
+                                    }}
+                                    data-tour={projectIndex === 0 ? 'drag-handle-0' : undefined}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5 cursor-grab active:cursor-grabbing text-gray-400 hover:text-black transition-colors"
+                                    title="Drag to reorder"
                                   >
-                                    <Star size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => setDeleteConfirm({ projectId: project.id, url })}
-                                    className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 transition-transform"
-                                    title="Delete"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                                <button
-                                  onClick={() => setDeleteConfirm({ projectId: project.id, url })}
-                                  className="md:hidden absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-full shadow-lg"
-                                >
-                                  <X size={12} />
-                                </button>
-                                {draft.imageUrl === url && (
-                                  <div className="absolute top-1 left-1 bg-black text-white text-[9px] font-bold px-2 py-0.5 rounded">
-                                    COVER
+                                    <GripVertical size={18} />
                                   </div>
-                                )}
-                              </div>
-                            ))}
+                                </>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {!isArchived && (
+                                <button
+                                  data-tour={projectIndex === 0 ? 'publish-toggle-0' : undefined}
+                                  onClick={(e) => { e.stopPropagation(); handleQuickTogglePublish(project.id); }}
+                                  className={`p-2 rounded-xl transition-all border ${project.published ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' : 'bg-gray-50 text-gray-400 border-gray-100 hover:bg-gray-100 hover:text-gray-600'}`}
+                                  title={project.published ? 'Unpublish' : 'Publish'}
+                                >
+                                  {project.published ? <Eye size={16} /> : <EyeOff size={16} />}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setExpandedId(project.id);
+                                  updateDraft(project.id, (d) => d); // Init draft
+                                }}
+                                className="px-4 py-2 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-lg shadow-black/10 flex items-center gap-2"
+                              >
+                                Edit Project <Edit3 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {isOpen && (
+                      <div className="border-t border-gray-100 bg-gray-50/50 p-6 lg:p-10 space-y-10 animate-fade-in relative">
+                        {/* Background Pattern */}
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
+
+                        {/* Close Button Top Right */}
+                        <div className="absolute top-6 right-6 z-20">
+                          <button
+                            onClick={() => setExpandedId(null)}
+                            className="p-2 rounded-full bg-white text-gray-400 hover:text-black hover:bg-gray-100 shadow-sm border border-gray-100 transition-all hover:scale-105"
+                            title="Close Editor"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+
+                        {isArchived && (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800 flex items-center gap-3">
+                            <ArchiveIcon size={18} />
+                            This project is currently archived. Restore it to make it visible on your site.
                           </div>
                         )}
+
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 relative z-10">
+                          {/* ──── Left Column: Essentials (Metadata) ──── */}
+                          <div className="xl:col-span-4 space-y-8">
+                            <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
+                              <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-serif text-sm">1</div>
+                              <h4 className="text-sm font-bold uppercase tracking-widest text-gray-900">Project Essentials</h4>
+                            </div>
+
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-6">
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Project Title</label>
+                                  <input
+                                    value={draft.title}
+                                    onChange={(e) => updateDraftField(project.id, 'title', e.target.value)}
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                    placeholder="Official Project Name"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Location</label>
+                                  <div className="relative">
+                                    <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                      value={draft.location}
+                                      onChange={(e) => updateDraftField(project.id, 'location', e.target.value)}
+                                      className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                      placeholder="City, Country"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Type</label>
+                                    <div className="relative">
+                                      <select
+                                        value={draft.type}
+                                        onChange={(e) => updateDraftField(project.id, 'type', e.target.value as Project['type'])}
+                                        className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white cursor-pointer"
+                                      >
+                                        {TYPE_OPTIONS.map((option) => (
+                                          <option key={option} value={option}>{option}</option>
+                                        ))}
+                                      </select>
+                                      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Subcategory</label>
+                                    <div className="relative">
+                                      <select
+                                        value={draft.subCategory}
+                                        onChange={(e) => updateDraftField(project.id, 'subCategory', e.target.value as Project['subCategory'])}
+                                        className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white cursor-pointer"
+                                      >
+                                        {SUBCATEGORY_OPTIONS.map((option) => (
+                                          <option key={option} value={option}>{option}</option>
+                                        ))}
+                                      </select>
+                                      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Category Tag</label>
+                                  <input
+                                    value={draft.category}
+                                    onChange={(e) => updateDraftField(project.id, 'category', e.target.value)}
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                    placeholder="e.g. Residential, Commercial"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Display Order</label>
+                                  <input
+                                    type="number"
+                                    value={draft.displayOrder ?? ''}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      const parsed = value === '' ? null : Number(value);
+                                      updateDraftField(project.id, 'displayOrder', parsed === null || Number.isNaN(parsed) ? null : parsed);
+                                    }}
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                    placeholder="Sort Order (e.g. 1, 2, 3)"
+                                  />
+                                </div>
+
+                                <div className="pt-2">
+                                  <label className="flex items-center justify-between p-4 border border-gray-200 rounded-xl bg-gray-50/50 cursor-pointer hover:bg-gray-100 transition-colors">
+                                    <span className="text-sm font-medium text-gray-900">Visible on Site</span>
+                                    <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${draft.published ? 'bg-black' : 'bg-gray-300'}`}>
+                                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${draft.published ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    </div>
+                                    <input
+                                      type="checkbox"
+                                      checked={draft.published}
+                                      onChange={(e) => updateDraftField(project.id, 'published', e.target.checked)}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 pt-2 border-t border-gray-100">
+                                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Description</label>
+                                <textarea
+                                  value={draft.description ?? ''}
+                                  onChange={(e) => updateDraftField(project.id, 'description', e.target.value)}
+                                  rows={4}
+                                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white resize-none"
+                                  placeholder="Add a brief description of the project..."
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ──── Right Column: Media Center ──── */}
+                          <div className="xl:col-span-8 space-y-8">
+                            <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-serif text-sm">2</div>
+                                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-900">Media Center</h4>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs font-semibold text-gray-400">
+                                <span className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${metadataDirty ? 'bg-orange-400 animate-pulse' : 'bg-emerald-400'}`} />
+                                  {metadataDirty ? 'Saving changes...' : 'All changes saved'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Cover Image Section */}
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100" data-tour="cover-section">
+                              <div className="flex items-center justify-between mb-4">
+                                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Cover Image</label>
+                                <button onClick={() => handleResetCover(project.id)} className="text-[10px] text-gray-400 hover:text-red-500 font-bold uppercase tracking-wider transition-colors">Reset to Default</button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Current Cover Preview */}
+                                <div className="md:col-span-2 aspect-video rounded-2xl overflow-hidden relative group bg-gray-100 border border-gray-200">
+                                  {draft.imageUrl ? (
+                                    <>
+                                      <img src={draft.imageUrl} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                    </>
+                                  ) : (
+                                    <div className="flex items-center justify-center w-full h-full text-gray-300">
+                                      <Image size={40} />
+                                    </div>
+                                  )}
+                                  <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10 uppercase tracking-widest">
+                                    Active Cover
+                                  </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex flex-col gap-3">
+                                  <button
+                                    onClick={() => {
+                                      coverUploadTarget.current = project.id;
+                                      coverInputRef.current?.click();
+                                    }}
+                                    className="flex-1 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:text-black hover:border-black hover:bg-gray-50 transition-all group"
+                                  >
+                                    <Upload size={24} className="group-hover:-translate-y-1 transition-transform" />
+                                    <span className="text-xs font-bold uppercase tracking-wider">Upload New</span>
+                                  </button>
+
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={urlDrafts[`cover_${project.id}`] ?? ''}
+                                      onChange={(e) => setUrlDrafts((prev) => ({ ...prev, [`cover_${project.id}`]: e.target.value }))}
+                                      placeholder="Paste URL..."
+                                      className="w-full border border-gray-200 rounded-xl pl-4 pr-10 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                    />
+                                    <button
+                                      onClick={async () => {
+                                        const url = (urlDrafts[`cover_${project.id}`] ?? '').trim();
+                                        if (!url) return;
+                                        await handleSetCover(project.id, url);
+                                        setUrlDrafts((prev) => ({ ...prev, [`cover_${project.id}`]: '' }));
+                                      }}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black text-white rounded-lg hover:bg-gray-800"
+                                    >
+                                      <CheckSquare size={12} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Suggestions */}
+                              <div className="mt-4 pt-4 border-t border-gray-100">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Quick Select Suggestions</p>
+                                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                  {suggestCovers(project.id, draft.galleries).map((coverUrl, idx) => (
+                                    <button
+                                      key={idx}
+                                      onClick={() => handleSetCover(project.id, coverUrl)}
+                                      className={`relative w-24 h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${draft.imageUrl === coverUrl ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-transparent opacity-60 hover:opacity-100 hover:border-gray-300'}`}
+                                    >
+                                      <img src={coverUrl} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).closest('button')!.style.display = 'none'; }} />
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Galleries Section */}
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-6">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex p-1 bg-gray-100 rounded-xl" data-tour="gallery-tabs">
+                                  {GALLERY_TABS.map((tab) => {
+                                    const count = tab === 'finished' ? finishedCount : developmentCount;
+                                    return (
+                                      <button
+                                        key={tab}
+                                        onClick={() => setActiveGalleryTab((prev) => ({ ...prev, [project.id]: tab }))}
+                                        className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab === tab ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                      >
+                                        {tab === 'finished' ? 'Finished' : 'Development'} <span className="opacity-40 ml-1">({count})</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    className="text-xs font-bold uppercase tracking-wider text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+                                    onClick={() => {
+                                      const current = selectedImages[project.id];
+                                      if (current && current.size === galleryImages.length) {
+                                        setSelectedImages((prev) => { const next = { ...prev }; delete next[project.id]; return next; });
+                                      } else {
+                                        setSelectedImages((prev) => ({ ...prev, [project.id]: new Set(galleryImages) }));
+                                      }
+                                    }}
+                                  >
+                                    {selectedImages[project.id]?.size === galleryImages.length ? 'Deselect All' : 'Select All'}
+                                  </button>
+                                  {(selectedImages[project.id]?.size ?? 0) > 0 && (
+                                    <button
+                                      className="text-xs font-bold uppercase tracking-wider text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+                                      onClick={() => handleBulkDeleteImages(project.id, activeTab)}
+                                    >
+                                      <Trash2 size={14} /> Delete ({selectedImages[project.id]?.size})
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div data-tour="upload-area" className="relative group">
+                                <div
+                                  onClick={() => {
+                                    uploadTargetRef.current = { projectId: project.id, gallery: activeTab };
+                                    setUploadTarget({ projectId: project.id, gallery: activeTab });
+                                    fileInputRef.current?.click();
+                                  }}
+                                  className="border-2 border-dashed border-gray-200 rounded-2xl h-24 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-black hover:border-black hover:bg-gray-50 transition-all cursor-pointer"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Upload size={20} />
+                                    <span className="text-sm font-bold">Drag & Drop or Click to Upload</span>
+                                  </div>
+                                  <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 group-hover:text-gray-500">
+                                    Adding to {activeTab === 'finished' ? 'Finished Gallery' : 'Development Gallery'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Image Grid */}
+                              {galleryImages.length === 0 ? (
+                                <div className="text-center py-12 opacity-40">
+                                  <ImageIcon size={48} className="mx-auto mb-2" />
+                                  <p className="text-sm font-medium">No images in this gallery yet.</p>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                  {galleryImages.map((url, idx) => {
+                                    const isDragging = dragState?.projectId === project.id && dragState?.gallery === activeTab && dragState?.fromIndex === idx;
+                                    const isDragOver = dragState?.projectId === project.id && dragState?.gallery === activeTab && dragOverIndex === idx;
+                                    const isImgSelected = selectedImages[project.id]?.has(url) ?? false;
+                                    const isCover = draft.imageUrl === url;
+
+                                    return (
+                                      <div
+                                        key={`${url}-${idx}`}
+                                        draggable
+                                        onDragStart={(e) => {
+                                          e.dataTransfer.effectAllowed = 'move';
+                                          setDragState({ projectId: project.id, gallery: activeTab, fromIndex: idx });
+                                        }}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          setDragOverIndex(idx);
+                                        }}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          if (dragState && dragState.projectId === project.id && dragState.gallery === activeTab) {
+                                            handleReorderImages(project.id, activeTab, dragState.fromIndex, idx);
+                                          }
+                                          setDragState(null);
+                                          setDragOverIndex(null);
+                                        }}
+                                        className={`relative aspect-square rounded-xl overflow-hidden group cursor-grab active:cursor-grabbing border-2 transition-all ${isImgSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-gray-200'
+                                          } ${isDragging ? 'opacity-20' : ''} ${isDragOver ? 'scale-105 z-10 ring-2 ring-blue-500' : ''}`}
+                                      >
+                                        <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+
+                                        {/* Overlays */}
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                                          <div className="flex justify-between items-start">
+                                            <input
+                                              type="checkbox"
+                                              checked={isImgSelected}
+                                              onChange={(e) => { e.stopPropagation(); toggleImageSelection(project.id, url); }}
+                                              className="w-4 h-4 rounded border-white/50 bg-black/20 checked:bg-blue-500 cursor-pointer"
+                                            />
+                                            <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ projectId: project.id, url }); }} className="p-1 bg-red-500/80 text-white rounded hover:bg-red-600 transition-colors">
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </div>
+                                          <div className="flex justify-center gap-2">
+                                            <button onClick={(e) => { e.stopPropagation(); setImagePreview(url); }} className="p-1.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40" title="View">
+                                              <Maximize2 size={12} />
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleSetCover(project.id, url); }} className={`p-1.5 backdrop-blur-md rounded-full hover:bg-white/40 ${isCover ? 'bg-emerald-500 text-white' : 'bg-white/20 text-white'}`} title="Set as Cover">
+                                              <Star size={12} />
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {isCover && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white"></div>}
+                                        <div className="absolute bottom-1 left-1 bg-black/50 backdrop-blur-sm text-white text-[9px] px-1.5 rounded font-mono">{idx + 1}</div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ──── Footer Actions ──── */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-6 border-t border-gray-200 border-dashed gap-4 sm:gap-0">
+                          <div className="w-full sm:w-auto">
+                            <button
+                              onClick={() => handleDuplicateProject(draft)}
+                              className="w-full sm:w-auto px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-black hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Copy size={16} /> Duplicate
+                            </button>
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                            {isArchived ? (
+                              <button
+                                onClick={() => handleRestoreProject(project.id)}
+                                className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all hover:scale-[1.02] justify-center"
+                              >
+                                Restore Project
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setProjectConfirm(project.id)}
+                                className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-all border border-red-100 justify-center"
+                              >
+                                Archive Project
+                              </button>
+                            )}
+
+                            <div className="hidden sm:block h-8 w-px bg-gray-300 mx-2" />
+
+                            <button
+                              onClick={() => setExpandedId(null)}
+                              className="w-full sm:w-auto px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-gray-800 shadow-lg shadow-black/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+                            >
+                              <CheckSquare size={16} /> Done Editing
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )
+          }
+        </div>
+
+        {/* Image Preview Modal */}
+        {
+          imagePreview && (() => {
+            const currentIdx = allGalleryImages.indexOf(imagePreview);
+            const hasPrev = currentIdx > 0;
+            const hasNext = currentIdx < allGalleryImages.length - 1;
+            return (
+              <div
+                className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-fade-in"
+                onClick={() => setImagePreview(null)}
+              >
+                {/* Close button */}
+                <button
+                  onClick={() => setImagePreview(null)}
+                  className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+                >
+                  <X size={24} />
+                </button>
+                {/* Image counter + keyboard hint */}
+                <div className="absolute top-6 left-6 text-white/60 text-xs z-10">
+                  {currentIdx >= 0 ? `${currentIdx + 1} / ${allGalleryImages.length}` : ''}
+                  <span className="ml-3 text-white/30">← → to navigate · Esc to close</span>
                 </div>
-              );
-            })}
-          </div>
-        )}
+                {/* Prev arrow */}
+                {hasPrev && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setImagePreview(allGalleryImages[currentIdx - 1]); }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+                  >
+                    <ChevronLeft size={28} />
+                  </button>
+                )}
+                {/* Next arrow */}
+                {hasNext && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setImagePreview(allGalleryImages[currentIdx + 1]); }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+                  >
+                    <ChevronRight size={28} />
+                  </button>
+                )}
+                <img
+                  src={imagePreview}
+                  alt="Full preview"
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            );
+          })()
+        }
+
+        {/* ──── Interactive Spotlight Tour ──── */}
+        {tourStep !== null && tourStep >= 0 && tourStep < TOUR_STEPS.length && (() => {
+          const step = TOUR_STEPS[tourStep];
+          const isFirst = tourStep === 0;
+          const isLast = tourStep === TOUR_STEPS.length - 1;
+          const el = document.querySelector(`[data-tour="${step.target}"]`) as HTMLElement | null;
+
+          // Scroll target into view and compute its position
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          const rect = el?.getBoundingClientRect();
+
+          // Decide tooltip position: below if element is in top half, above otherwise
+          const placeBelow = rect ? rect.bottom < window.innerHeight * 0.6 : true;
+
+          return (
+            <>
+              {/* Full-screen overlay with spotlight cutout */}
+              <div className="fixed inset-0 z-[60]" onClick={() => setTourStep(null)}>
+                <svg width="100%" height="100%" className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+                  <defs>
+                    <mask id="tour-spotlight">
+                      <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                      {rect && (
+                        <rect
+                          x={rect.left - TOUR_SPOTLIGHT_PAD}
+                          y={rect.top - TOUR_SPOTLIGHT_PAD}
+                          width={rect.width + TOUR_SPOTLIGHT_PAD * 2}
+                          height={rect.height + TOUR_SPOTLIGHT_PAD * 2}
+                          rx="12"
+                          fill="black"
+                        />
+                      )}
+                    </mask>
+                  </defs>
+                  <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.60)" mask="url(#tour-spotlight)" />
+                </svg>
+
+                {/* Spotlight ring around target element */}
+                {rect && (
+                  <div
+                    className="absolute border-2 border-blue-400 rounded-xl pointer-events-none animate-pulse"
+                    style={{
+                      top: rect.top - TOUR_SPOTLIGHT_PAD,
+                      left: rect.left - TOUR_SPOTLIGHT_PAD,
+                      width: rect.width + TOUR_SPOTLIGHT_PAD * 2,
+                      height: rect.height + TOUR_SPOTLIGHT_PAD * 2,
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Tooltip card positioned near the element */}
+              <div
+                className="fixed z-[61] max-w-sm w-[90vw] bg-white rounded-2xl shadow-2xl p-5 space-y-3 animate-fade-in"
+                style={rect ? {
+                  left: Math.max(12, Math.min(rect.left, window.innerWidth - 380)),
+                  ...(placeBelow
+                    ? { top: rect.bottom + TOUR_SPOTLIGHT_PAD + 12 }
+                    : { bottom: window.innerHeight - rect.top + TOUR_SPOTLIGHT_PAD + 12 }
+                  ),
+                } : {
+                  top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Step counter + progress */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-semibold">
+                    Step {tourStep + 1} of {TOUR_STEPS.length}
+                  </p>
+                  <button onClick={() => setTourStep(null)} className="p-0.5 text-gray-400 hover:text-gray-600">
+                    <X size={14} />
+                  </button>
+                </div>
+                {/* Progress bar */}
+                <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${((tourStep + 1) / TOUR_STEPS.length) * 100}%` }} />
+                </div>
+                <h3 className="text-base font-bold text-gray-900">{step.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>
+                {/* Navigation */}
+                <div className="flex items-center justify-between pt-1">
+                  <button onClick={() => setTourStep(null)} className="text-[11px] text-gray-400 hover:text-gray-600 hover:underline">
+                    Skip
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {!isFirst && (
+                      <button
+                        onClick={() => setTourStep(tourStep - 1)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      >
+                        <ChevronLeft size={12} /> Back
+                      </button>
+                    )}
+                    {isLast ? (
+                      <button
+                        onClick={() => setTourStep(null)}
+                        className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                      >
+                        Done ✓
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setTourStep(tourStep + 1)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-black text-white hover:opacity-90"
+                      >
+                        Next <ChevronRight size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()
+        }
       </div>
-    </div>
+    </div >
   );
 };
 
