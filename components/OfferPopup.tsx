@@ -3,6 +3,8 @@ import { X, Loader2 } from 'lucide-react';
 import { db } from '../src/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { trackOfferSubmission } from '../src/analytics';
+import emailjs from '@emailjs/browser';
+import { EMAILJS_SERVICE_ID, EMAILJS_OFFER_TEMPLATE_ID } from '../constants';
 
 interface OfferPopupProps {
   isOpen: boolean;
@@ -31,6 +33,7 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
     setSubmitting(true);
     setSubmitError(false);
     try {
+      // 1. Save to Firebase (Existing logic)
       await addDoc(collection(db, 'offerSubmissions'), {
         fullName: formData.fullName,
         email: formData.email,
@@ -38,6 +41,19 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
         createdAt: serverTimestamp(),
         source: 'offer_popup',
       });
+
+      // 2. Send Email via EmailJS (New logic)
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_OFFER_TEMPLATE_ID,
+        {
+          from_name: formData.fullName,
+          reply_to: formData.email,
+          phone: formData.phone,
+          source: 'Offer Popup (Free Consultation)'
+        }
+      );
+
       trackOfferSubmission(formData.email);
       localStorage.setItem('offerFormSubmitted', 'true');
       setSubmitted(true);
@@ -47,12 +63,13 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
         setFormData({ fullName: '', email: '', phone: '' });
       }, 2000);
     } catch (err) {
-      console.error('[OfferPopup] Firestore write failed', err);
+      console.error('[OfferPopup] Submission failed', err);
       setSubmitError(true);
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const handleClose = () => {
     // Track how many times user closed without submitting

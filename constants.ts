@@ -177,3 +177,10 @@ export const HERO_SLIDES = [
     tagline: 'Where design meets emotion'
   }
 ];
+
+// EmailJS Configuration
+export const EMAILJS_PUBLIC_KEY = "vhtnkdG3JFSo0HTob";
+// IMPORTANT: Replace these with your actual Service and Template IDs from EmailJS Dashboard
+export const EMAILJS_SERVICE_ID = "service_zq0hu7t";
+export const EMAILJS_CONTACT_TEMPLATE_ID = "template_517hpcs";
+export const EMAILJS_OFFER_TEMPLATE_ID = "template_517hpcs";

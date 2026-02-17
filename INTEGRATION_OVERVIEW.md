@@ -107,3 +107,35 @@ We have a fail-safe called `devBypass` (or "Dev Mode").
 *   **Storage**: It saves changes to your browser's `localStorage`.
 *   **Uploads**: It converts images to Base64 strings locally instead of uploading them.
 *   **Purpose**: This allows you to test the UI logic without messing up your live database or using up your API limits.
+
+---
+
+## 5. EmailJS Integration
+
+EmailJS is used to send automated notifications whenever a lead is submitted via the **Contact Page** or the **Free Consultation Popup**.
+
+### Configuration (`constants.ts`)
+
+We store the public configuration in `constants.ts`. Note that the **Public Key** is safe to expose in the frontend, but **Service/Template IDs** should be configured to match your EmailJS dashboard.
+
+```typescript
+export const EMAILJS_PUBLIC_KEY = "vhtnkdG3JFSo0HTob";
+export const EMAILJS_SERVICE_ID = "service_zq0hu7t"; 
+export const EMAILJS_CONTACT_TEMPLATE_ID = "template_517hpcs";
+export const EMAILJS_OFFER_TEMPLATE_ID = "template_517hpcs";
+```
+
+### Implementation
+
+1.  **Initialization**: The service is initialized globally in `index.tsx`.
+2.  **Redundancy**: Every form submission triggers **two** actions:
+    *   **Saving to Firebase**: Ensures a permanent record in the database.
+    *   **Sending an Email**: Provides immediate notification to the team.
+
+### Variables sent to EmailJS:
+*   `from_name`: The user's full name.
+*   `reply_to`: The user's email address.
+*   `phone`: The user's contact number.
+*   `message`: Their project details (for the contact page).
+*   `source`: Indicates whether it came from the Contact Page or the Popup.
+

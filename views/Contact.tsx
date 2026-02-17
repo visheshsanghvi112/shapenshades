@@ -4,6 +4,8 @@ import { ViewProps } from '../types';
 import { db } from '../src/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { trackContactSubmission } from '../src/analytics';
+import emailjs from '@emailjs/browser';
+import { EMAILJS_SERVICE_ID, EMAILJS_CONTACT_TEMPLATE_ID } from '../constants';
 
 const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
@@ -22,21 +24,38 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     if (!formData.name || !formData.email) return;
     setStatus('sending');
     try {
+      // 1. Save to Firebase (Existing logic)
       await addDoc(collection(db, 'contactSubmissions'), {
         ...formData,
         createdAt: serverTimestamp(),
         source: 'contact_page',
       });
+
+      // 2. Send Email via EmailJS (New logic)
+      // We pass the formData object which matches the keys in the EmailJS template
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_CONTACT_TEMPLATE_ID,
+        {
+          from_name: formData.name,
+          reply_to: formData.email,
+          phone: formData.phone,
+          message: formData.message,
+          source: 'Contact Page'
+        }
+      );
+
       trackContactSubmission(formData.email);
       setStatus('sent');
       setFormData({ name: '', email: '', phone: '', message: '' });
       setTimeout(() => setStatus('idle'), 4000);
     } catch (err) {
-      console.error('[Contact] Firestore write failed', err);
+      console.error('[Contact] Submission failed', err);
       setStatus('error');
       setTimeout(() => setStatus('idle'), 4000);
     }
   };
+
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col pt-32 px-6 md:px-12 lg:px-24 pb-20">
