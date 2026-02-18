@@ -6,13 +6,13 @@ import { getAnalytics, isSupported } from 'firebase/analytics';
 
 // Firebase project credentials for Shapes & Shades
 const firebaseConfig = {
-  apiKey: "AIzaSyBSULRps4GYC8XRi-tqKUMhYzfWPe9VNFc",
-  authDomain: "shapenshades-74d41.firebaseapp.com",
-  projectId: "shapenshades-74d41",
-  storageBucket: "shapenshades-74d41.firebasestorage.app",
-  messagingSenderId: "1025632982903",
-  appId: "1:1025632982903:web:ba6ba67575316b3cae3372",
-  measurementId: "G-QY0X7QKVYE"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);

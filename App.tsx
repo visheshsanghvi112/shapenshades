@@ -13,6 +13,7 @@ import About from './views/About';
 import Projects from './views/Projects';
 import Contact from './views/Contact';
 import Admin from './views/Admin';
+import { Analytics } from '@vercel/analytics/react';
 
 const App: React.FC = () => {
   // Initialize from URL hash
@@ -176,6 +177,9 @@ const App: React.FC = () => {
 
       {/* Chatbot */}
       <Chatbot />
+
+      {/* Vercel Analytics */}
+      <Analytics />
     </div>
   );
 };
