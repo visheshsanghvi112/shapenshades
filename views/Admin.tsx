@@ -35,6 +35,41 @@ const IMGBB_API_KEY = 'ac67b61d339631b073051b879364c0bd';
 
 const IMGBB_MAX_SIZE = 32 * 1024 * 1024; // 32 MB free-tier limit
 
+// Cloudinary — free tier, no billing required, supports images + videos
+// Cloud name: shapenshades | Upload preset: shapenshades_unsigned (unsigned, no auth needed)
+const CLOUDINARY_CLOUD_NAME = 'shapenshades';
+const CLOUDINARY_UPLOAD_PRESET = 'shapenshades_unsigned';
+const CLOUDINARY_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+
+const uploadToCloudinary = async (file: File): Promise<string> => {
+  if (file.size > CLOUDINARY_MAX_SIZE) {
+    throw new Error(`File "${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB — max allowed is 100 MB.`);
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+  const resourceType = file.type.startsWith('video/') ? 'video' : 'image';
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
+    { method: 'POST', body: formData }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error('[Cloudinary] Upload Error:', res.status, errorText);
+    throw new Error(`Cloudinary upload failed: ${res.status} ${res.statusText}`);
+  }
+
+  const json = await res.json();
+  if (!json.secure_url) {
+    console.error('[Cloudinary] Invalid Response:', json);
+    throw new Error('Cloudinary response missing URL');
+  }
+
+  return json.secure_url as string;
+};
+
 const uploadToImgBB = async (file: File): Promise<string> => {
   if (file.size > IMGBB_MAX_SIZE) {
     throw new Error(`File "${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB — ImgBB limit is 32 MB. Please compress or resize before uploading.`);
@@ -155,7 +190,22 @@ const readDevProjects = (): Project[] => {
 
 const writeDevProjects = (projects: Project[]) => {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(normalizeProjects(projects)));
+  // Strip data URLs before saving — they're too large for localStorage (5MB limit).
+  // Videos/images uploaded as data URLs stay in React state for the session only.
+  // Use a real hosted URL (ImgBB, Pexels, etc.) for permanent storage.
+  const sanitized = normalizeProjects(projects).map((p) => ({
+    ...p,
+    imageUrl: p.imageUrl?.startsWith('data:') ? '' : p.imageUrl,
+    galleries: {
+      finished: p.galleries.finished.filter((u) => !u.startsWith('data:')),
+      development: p.galleries.development.filter((u) => !u.startsWith('data:')),
+    },
+  }));
+  try {
+    window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(sanitized));
+  } catch (err) {
+    console.warn('[Admin] localStorage write failed even after stripping data URLs:', err);
+  }
 };
 
 type GalleryKey = 'finished' | 'development';
@@ -504,11 +554,12 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
     const category = draft.category.trim() || 'Projects';
     const description = (draft.description ?? '').trim();
+    // Strip data URLs — they're too large for Firestore (1MB doc limit)
     const galleries = {
-      finished: [...draft.galleries.finished],
-      development: [...draft.galleries.development],
+      finished: draft.galleries.finished.filter((u) => !u.startsWith('data:')),
+      development: draft.galleries.development.filter((u) => !u.startsWith('data:')),
     };
-    const cover = draft.imageUrl || galleries.finished[0] || galleries.development[0] || '';
+    const cover = (draft.imageUrl?.startsWith('data:') ? '' : draft.imageUrl) || galleries.finished[0] || galleries.development[0] || '';
 
     if (devBypass) {
       applyDevProjects((prev) => {
@@ -590,7 +641,11 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     }
 
     const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
-    if (!project) return false;
+    if (!project) {
+      console.error('[Admin] addImageToGallery: project not found for id', projectId);
+      flash('err', 'Project not found — try refreshing the page');
+      return false;
+    }
 
     const nextGalleries: Project['galleries'] = {
       finished: [...project.galleries.finished],
@@ -625,6 +680,13 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       return true;
     }
 
+    // Data URLs (local files) are too large for Firestore (1MB doc limit).
+    // The user must upload to a hosting service and paste the URL instead.
+    if (url.startsWith('data:')) {
+      flash('err', 'Videos/images from your computer can\'t be saved to the database. Please upload to a hosting service and paste the URL.');
+      return false;
+    }
+
     try {
       await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
         galleries: nextGalleries,
@@ -644,22 +706,30 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     const url = (urlDrafts[projectId] ?? '').trim();
     if (!url) return;
 
-    try {
-      new URL(url);
-    } catch {
-      flash('err', 'Please enter a valid image URL');
-      return;
+    console.log('[Admin] Adding URL:', url, '| gallery:', gallery, '| projectId:', projectId);
+
+    // Allow local public/ paths like /my-video.mp4
+    const isLocalPath = url.startsWith('/');
+
+    if (!isLocalPath) {
+      try {
+        new URL(url);
+      } catch {
+        flash('err', 'Please enter a valid URL or a local path starting with /');
+        return;
+      }
     }
 
-    if (!/\.(jpe?g|png|gif|webp|avif|bmp|svg)(\?.*)?$/i.test(url) && !url.includes('unsplash.com') && !url.includes('ibb.co') && !url.includes('imgur.com')) {
-      flash('err', 'URL does not look like an image. Use a direct image link.');
-      return;
-    }
+    const isVideo = /\.(mp4|mov|webm|ogv)/i.test(url) || url.includes('video');
 
     const success = await addImageToGallery(projectId, gallery, url);
+    console.log('[Admin] addImageToGallery result:', success);
     if (success) {
       setUrlDrafts((prev) => ({ ...prev, [projectId]: '' }));
-      flash('ok', 'Image added');
+      flash('ok', isVideo ? 'Video added — scroll down to see it' : 'Media added');
+    } else {
+      // Only show generic fallback if no specific error was already shown
+      flash('err', 'Could not add — check the browser console for details');
     }
   }, [addImageToGallery, flash, getActiveGallery, urlDrafts]);
 
@@ -673,8 +743,15 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
     if (devBypass) {
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) { skipped++; continue; }
+        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) { skipped++; continue; }
         try {
+          if (file.type.startsWith('video/')) {
+            if (file.size > 50 * 1024 * 1024) {
+              flash('err', `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Max 50MB — or paste a URL instead.`);
+              skipped++;
+              continue;
+            }
+          }
           const dataUrl: string = await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result as string);
@@ -693,19 +770,35 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       setUploadTarget(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (added > 0) {
-        flash('ok', `${added} image${added === 1 ? '' : 's'} uploaded`);
+        flash('ok', `${added} file${added === 1 ? '' : 's'} uploaded`);
       } else if (skipped > 0) {
-        flash('err', `${skipped} file${skipped === 1 ? '' : 's'} skipped — only images are allowed`);
+        flash('err', `${skipped} file${skipped === 1 ? '' : 's'} skipped — images only. For videos, paste a URL below.`);
       }
       return;
     }
 
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) { skipped++; continue; }
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) { skipped++; continue; }
       try {
-        const downloadUrl = await uploadToImgBB(file);
-        const success = await addImageToGallery(target.projectId, target.gallery, downloadUrl);
-        if (success) added++;
+        if (file.type.startsWith('video/')) {
+          if (file.size > 50 * 1024 * 1024) {
+            flash('err', `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Max 50MB — or paste a URL instead.`);
+            skipped++;
+            continue;
+          }
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          });
+          const success = await addImageToGallery(target.projectId, target.gallery, dataUrl);
+          if (success) added++;
+        } else {
+          const downloadUrl = await uploadToImgBB(file);
+          const success = await addImageToGallery(target.projectId, target.gallery, downloadUrl);
+          if (success) added++;
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Upload failed';
         reportError('Upload failed', err, msg);
@@ -719,7 +812,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     if (added > 0) {
       flash('ok', `${added} image${added === 1 ? '' : 's'} uploaded`);
     } else if (skipped > 0 && added === 0) {
-      flash('err', `${skipped} file${skipped === 1 ? '' : 's'} skipped — only images are allowed`);
+      flash('err', `${skipped} file${skipped === 1 ? '' : 's'} skipped — images only. For videos, paste a URL below.`);
     } else if (added === 0) {
       flash('err', 'Upload failed — no images were added');
     }
@@ -1754,7 +1847,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         </div>
       )}
 
-      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileUpload(e.target.files)} />
+      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => handleFileUpload(e.target.files)} />
       <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCoverFileUpload(e.target.files)} />
 
       <div className="max-w-7xl mx-auto space-y-8">
@@ -2427,7 +2520,40 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                 </div>
                               </div>
 
-                              {/* Image Grid */}
+                              {/* URL / Local Path Input */}
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={urlDrafts[project.id] ?? ''}
+                                  onChange={(e) => setUrlDrafts((prev) => ({ ...prev, [project.id]: e.target.value }))}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddImageUrl(project.id); }}
+                                  placeholder="Paste image or video URL here and click Add…"
+                                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                />
+                                <button
+                                  onClick={() => handleAddImageUrl(project.id)}
+                                  className="px-4 py-2.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors whitespace-nowrap"
+                                >
+                                  Add
+                                </button>
+                              </div>
+
+                              {/* How to add videos — friendly guide for non-tech users */}
+                              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                                  <span>🎬</span> How to Add a Video
+                                </p>
+                                <p className="text-xs text-amber-800 leading-relaxed">
+                                  Videos cannot be uploaded directly from your computer — they need to be hosted online first. Here's the easiest way:
+                                </p>
+                                <ol className="text-xs text-amber-800 space-y-1.5 list-none">
+                                  <li className="flex gap-2"><span className="font-bold shrink-0">Option 1 —</span><span><strong>YouTube / Vimeo:</strong> Upload your video there, copy the video link, and paste it in the box above.</span></li>
+                                  <li className="flex gap-2"><span className="font-bold shrink-0">Option 2 —</span><span><strong>Google Drive:</strong> Upload the video to Google Drive → right-click → "Get link" → set to "Anyone with the link" → paste that link above.</span></li>
+                                  <li className="flex gap-2"><span className="font-bold shrink-0">Option 3 —</span><span><strong>Direct video link:</strong> If you already have a link ending in <code className="bg-amber-100 px-1 rounded">.mp4</code> from anywhere online, just paste it directly.</span></li>
+                                </ol>
+                                <p className="text-[10px] text-amber-600 pt-1">📸 Photos can be uploaded directly using the "Click to Upload" button above.</p>
+                              </div>
+
                               {galleryImages.length === 0 ? (
                                 <div className="text-center py-12 opacity-40">
                                   <ImageIcon size={48} className="mx-auto mb-2" />
@@ -2464,7 +2590,16 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                         className={`relative aspect-square rounded-xl overflow-hidden group cursor-grab active:cursor-grabbing border-2 transition-all ${isImgSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-gray-200'
                                           } ${isDragging ? 'opacity-20' : ''} ${isDragOver ? 'scale-105 z-10 ring-2 ring-blue-500' : ''}`}
                                       >
-                                        <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                        {url.startsWith('data:video') || /\.(mp4|mov|webm|ogv|quicktime)$/i.test(url) || url.includes('drive.google.com') || url.includes('youtube.com') || url.includes('youtu.be') || url.includes('pexels.com/video') ? (
+                                          <div className="w-full h-full bg-gray-900 flex flex-col items-center justify-center gap-1 pointer-events-none">
+                                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                                              <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4"><path d="M8 5v14l11-7z" /></svg>
+                                            </div>
+                                            <span className="text-white/60 text-[9px] font-bold uppercase tracking-wider">Video</span>
+                                          </div>
+                                        ) : (
+                                          <img src={url} alt="" className="w-full h-full object-cover pointer-events-none" loading="lazy" />
+                                        )}
 
                                         {/* Overlays */}
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">

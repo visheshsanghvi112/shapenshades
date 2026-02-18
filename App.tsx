@@ -55,7 +55,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const hasSubmitted = localStorage.getItem('offerFormSubmitted');
     const closeCount = parseInt(localStorage.getItem('offerCloseCount') || '0');
-    
+
     // Show popup if:
     // 1. User hasn't submitted the form AND
     // 2. They've closed it less than 2 times (show max 2 times)
@@ -73,7 +73,7 @@ const App: React.FC = () => {
       }
 
       const currentScrollY = window.scrollY;
-      
+
       // Always show at the very top to avoid getting stuck
       if (currentScrollY < 50) {
         setShowHeader(true);
@@ -113,21 +113,21 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen relative font-sans selection:bg-black selection:text-white flex flex-col">
       {/* Header */}
-      <header 
+      <header
         className={`fixed top-0 left-0 w-full z-40 p-6 md:p-8 flex justify-between items-center transition-transform duration-500 ease-in-out ${headerTextColor} ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}
       >
-        <div 
+        <div
           className="cursor-pointer z-50 pointer-events-auto"
           onClick={() => setCurrentView('HOME')}
         >
-          <img 
-            src="/logo-web.png" 
+          <img
+            src="/SNS-logo-2.2.png"
             alt={FIRM_NAME}
             className="h-16 md:h-20 w-auto object-contain"
           />
         </div>
-        
-        <button 
+
+        <button
           onClick={() => {
             setIsMenuOpen(true);
             setIsOfferPopupOpen(false); // Close popup when opening menu
@@ -146,27 +146,27 @@ const App: React.FC = () => {
 
       {/* Footer */}
       {/* Fixed on Home view, Static on others */}
-      <Footer 
-        isDarkBackground={isDarkMode} 
-        position={currentView === 'HOME' ? 'fixed' : 'static'} 
+      <Footer
+        isDarkBackground={isDarkMode}
+        position={currentView === 'HOME' ? 'fixed' : 'static'}
       />
 
       {/* Full Screen Menu Overlay */}
-      <Menu 
-        isOpen={isMenuOpen} 
+      <Menu
+        isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         currentView={currentView}
         onNavigate={(view) => {
-            setCurrentView(view);
-            // Default reset on nav
-            if(view !== 'HOME') setIsDarkMode(false);
-            // Ensure header shows immediately on nav
-            setShowHeader(true);
+          setCurrentView(view);
+          // Default reset on nav
+          if (view !== 'HOME') setIsDarkMode(false);
+          // Ensure header shows immediately on nav
+          setShowHeader(true);
         }}
       />
 
       {/* Offer Popup */}
-      <OfferPopup 
+      <OfferPopup
         isOpen={isOfferPopupOpen && !isMenuOpen}
         onClose={() => setIsOfferPopupOpen(false)}
       />

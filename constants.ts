@@ -5,7 +5,7 @@ export const FOUNDED_YEAR = 2019;
 
 // Array of video backgrounds for the Home carousel
 export const HERO_VIDEOS = [
-  "https://videos.pexels.com/video-files/7578544/7578544-uhd_3840_2160_30fps.mp4" // Aesthetic Interior (Beige tones)
+  "/18531410-uhd_3840_2160_60fps.mp4"
 ];
 
 export const ABOUT_TEXT = [
