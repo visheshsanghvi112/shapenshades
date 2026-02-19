@@ -6,6 +6,7 @@ interface Message {
   text: string;
   sender: 'bot' | 'user';
   timestamp: Date;
+  isTyped?: boolean;
 }
 
 interface QA {
@@ -13,6 +14,21 @@ interface QA {
   answer: string;
   keywords?: string[];
 }
+
+// Typewriter Component for Realtime effect
+// Typewriter Component Wrapper - Simplified to prevent race conditions
+const Typewriter: React.FC<{ text: string; onComplete?: () => void }> = ({ text, onComplete }) => {
+  // Use a simple timeout to trigger onComplete if needed, but render text immediately
+  useEffect(() => {
+    if (onComplete) {
+      // Small delay just to allow DOM to settle
+      const timer = setTimeout(onComplete, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [onComplete]);
+
+  return <>{text}</>;
+};
 
 const PREDEFINED_QA: QA[] = [
   {
@@ -75,6 +91,47 @@ const PREDEFINED_QA: QA[] = [
       'Yes, we provide detailed 3D visualizations and walkthroughs so you can experience your space before execution begins. This helps in making informed decisions on layout, colors, and materials.',
     keywords: ['3d', 'render', 'visual', 'walkthrough', 'model', 'design', 'preview'],
   },
+  // --- CONVERSATIONAL / CHIT-CHAT ---
+  {
+    question: 'Hello',
+    answer: 'Hi there! 👋 How can I help you design your dream space today?',
+    keywords: ['hi', 'hello', 'hey', 'greetings', 'morning', 'afternoon', 'evening', 'yo', 'sup'],
+  },
+  {
+    question: 'How are you?',
+    answer: 'I\'m doing great, thanks for asking! Just busy admiring some beautiful architectural layouts. How are you doing?',
+    keywords: ['how are you', 'how are u', 'how r u', 'how do you do', 'whats up'],
+  },
+  {
+    question: 'Who are you?',
+    answer: 'I\'m the Shapes & Shades virtual assistant. I\'m here to help you navigate our services and answer any questions you might have about design!',
+    keywords: ['who are you', 'what are you', 'your name'],
+  },
+  {
+    question: 'Thank you',
+    answer: 'You\'re very welcome! Let me know if you need anything else.',
+    keywords: ['thank', 'thx', 'thanks', 'appreciate', 'cool', 'great'],
+  },
+  {
+    question: 'Bye',
+    answer: 'Goodbye! Feel free to come back if you have more questions. Have a creative day! ✨',
+    keywords: ['bye', 'goodbye', 'cya', 'later', 'leave'],
+  },
+  {
+    question: 'Rude',
+    answer: 'I\'m just a bot trying my best! If you need specific help, please ask, or you can contact our human team directly at +91 80972 41237.',
+    keywords: ['fuck', 'shit', 'stupid', 'dumb', 'idiot', 'shut up', 'bitch', 'ass', 'sex'],
+  },
+  {
+    question: 'Good choice',
+    answer: 'Glad you think so! Excellent design is all about making the right choices. 😉',
+    keywords: ['good', 'nice', 'awesome', 'amazing', 'wow', 'beautiful'],
+  },
+  {
+    question: 'Joke',
+    answer: 'Why did the architect dip his blueprints in the ocean? ... He wanted to see his plans at sea! 🌊🏗️',
+    keywords: ['joke', 'funny', 'laugh'],
+  },
 ];
 
 const GREETING: Message = {
@@ -82,6 +139,7 @@ const GREETING: Message = {
   text: "Hello! 👋 Welcome to Shapes & Shades. I'm here to help you with any questions about our design services. Pick a topic below or type your own!",
   sender: 'bot',
   timestamp: new Date(),
+  isTyped: true // Greeting acts as already typed
 };
 
 const formatTime = (date: Date) => {
@@ -116,20 +174,32 @@ const Chatbot: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const nextIdRef = useRef(1);
 
+  // Auto-scroll when messages update or typing status changes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  }, [messages, isTyping, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 400);
+      // OPTIONAL: If you want to RESET the chat every time they open it:
+      // setMessages([GREETING]);
+      // BUT usually users like history. 
+      // The user asked "When we RELOAD the chats should auto refresh".
+      // A page reload ALREADY refreshes the chat.
+      // If they mean "Refresh the page -> Chat is gone", that is default behavior.
     }
   }, [isOpen]);
 
-  const addMessage = (text: string, sender: 'bot' | 'user') => {
+  const addMessage = (text: string, sender: 'bot' | 'user', isTyped: boolean = true) => {
     const id = nextIdRef.current++;
-    setMessages((prev) => [...prev, { id, text, sender, timestamp: new Date() }]);
+    setMessages((prev) => [...prev, { id, text, sender, timestamp: new Date(), isTyped }]);
   };
+
+  const markMessageAsTyped = (id: number) => {
+    setMessages(prev => prev.map(msg => msg.id === id ? { ...msg, isTyped: true } : msg));
+  };
+
 
   const findAnswer = (query: string): string => {
     const lower = query.toLowerCase();
@@ -144,11 +214,17 @@ const Chatbot: React.FC = () => {
   const handleBotReply = (answer: string) => {
     setIsTyping(true);
     setShowQuickQuestions(false);
+
+    // Simulate "Thinking" time
     setTimeout(() => {
       setIsTyping(false);
-      addMessage(answer, 'bot');
-      setTimeout(() => setShowQuickQuestions(true), 400);
-    }, 800 + Math.random() * 400);
+      // Add message but mark isTyped = false to trigger animation
+      addMessage(answer, 'bot', false);
+
+      // Re-enable suggestions after typing is roughly done (optional, or rely on Typewriter onComplete)
+      // Actually, let's enable suggestions immediately after typing STARTS so they are ready
+      setTimeout(() => setShowQuickQuestions(true), 1000);
+    }, 1000 + Math.random() * 500);
   };
 
   const handleQuickQuestion = (qa: QA) => {
@@ -189,8 +265,8 @@ const Chatbot: React.FC = () => {
       <button
         onClick={handleToggle}
         className={`fixed bottom-20 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 group ${isOpen
-            ? 'bg-gray-700 shadow-gray-300/50'
-            : 'bg-gradient-to-br from-gray-900 to-black hover:shadow-xl hover:shadow-black/20 hover:scale-110 animate-bounce-slow'
+          ? 'bg-gray-700 shadow-gray-300/50'
+          : 'bg-gradient-to-br from-gray-900 to-black hover:shadow-xl hover:shadow-black/20 hover:scale-110 animate-bounce-slow'
           }`}
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
       >
@@ -248,12 +324,20 @@ const Chatbot: React.FC = () => {
               >
                 {msg.sender === 'bot' && (
                   <div className="flex items-end gap-2 max-w-[85%]">
+                    {/* Bot Icon */}
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center shrink-0 mb-5">
                       <Sparkles className="w-3.5 h-3.5 text-white" />
                     </div>
                     <div>
-                      <div className="bg-white text-gray-700 border border-gray-100 rounded-2xl rounded-bl-md px-4 py-3 text-[13px] leading-relaxed shadow-sm">
-                        {msg.text}
+                      <div className="bg-white text-gray-700 border border-gray-100 rounded-2xl rounded-bl-md px-4 py-3 text-[13px] leading-relaxed shadow-sm min-h-[46px]">
+                        {msg.isTyped ? (
+                          msg.text
+                        ) : (
+                          <Typewriter
+                            text={msg.text}
+                            onComplete={() => markMessageAsTyped(msg.id)}
+                          />
+                        )}
                       </div>
                       <p className="text-[10px] text-gray-400 mt-1 ml-1">{formatTime(msg.timestamp)}</p>
                     </div>
@@ -278,11 +362,11 @@ const Chatbot: React.FC = () => {
               <div className="space-y-2 pt-3 pb-1">
                 <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 px-1 flex items-center gap-1.5">
                   <span className="w-4 h-px bg-gray-300"></span>
-                  Suggested Questions
+                  Suggested
                   <span className="w-4 h-px bg-gray-300"></span>
                 </p>
                 <div className="space-y-1.5">
-                  {PREDEFINED_QA.map((qa, i) => (
+                  {PREDEFINED_QA.slice(0, 3).map((qa, i) => (
                     <button
                       key={i}
                       onClick={() => handleQuickQuestion(qa)}
@@ -291,7 +375,7 @@ const Chatbot: React.FC = () => {
                       <span className="w-5 h-5 rounded-full bg-gray-100 group-hover:bg-gray-900 flex items-center justify-center shrink-0 transition-colors">
                         <ChevronRight className="w-3 h-3 text-gray-400 group-hover:text-white transition-colors" />
                       </span>
-                      <span className="text-gray-600 group-hover:text-gray-900 transition-colors">
+                      <span className="text-gray-600 group-hover:text-gray-900 transition-colors line-clamp-1">
                         {qa.question}
                       </span>
                     </button>
@@ -317,8 +401,8 @@ const Chatbot: React.FC = () => {
               onClick={handleSend}
               disabled={!input.trim()}
               className={`p-2.5 rounded-xl shrink-0 transition-all duration-200 ${input.trim()
-                  ? 'bg-gradient-to-br from-gray-900 to-black text-white shadow-md hover:shadow-lg hover:scale-105'
-                  : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                ? 'bg-gradient-to-br from-gray-900 to-black text-white shadow-md hover:shadow-lg hover:scale-105'
+                : 'bg-gray-100 text-gray-300 cursor-not-allowed'
                 }`}
             >
               <Send className="w-4 h-4" />

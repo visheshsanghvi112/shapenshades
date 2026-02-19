@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback, useTransition } from 'react';
 import { PROJECTS } from '../constants';
 import { Project, ViewProps } from '../types';
 import { Trash2, Plus, Upload, Image, X, ChevronDown, ChevronUp, Star, LogIn, Loader2, Eye, EyeOff, ShieldCheck, Lock, Mail, GripVertical, Copy, ArrowRightLeft, Search, Maximize2, Download, CheckSquare, ChevronLeft, ChevronRight, Clock, HelpCircle, LayoutGrid, Edit3, Settings, ImageIcon, MapPin, RefreshCw, Archive as ArchiveIcon, FilePlus, Globe } from 'lucide-react';
@@ -7,9 +7,12 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'f
 import { collection, doc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 
+import { DEV_STORAGE_KEY } from './Projects';
+
 const FIRESTORE_COLLECTION = 'projects';
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000';
-const DEV_STORAGE_KEY = 'shapes_shades_dev_projects_v2';
+// DEV_STORAGE_KEY imported from Projects
+const DEV_STORAGE_PREFIX = 'shapes_shades_dev_projects_';
 
 const TOUR_STEPS: { target: string; title: string; description: string }[] = [
   { target: 'dashboard-stats', title: 'Dashboard Overview', description: 'Your portfolio health at a glance — total projects, published count, archived, and image stats.' },
@@ -154,37 +157,57 @@ const suggestCovers = (projectId: string, galleries?: { finished: string[]; deve
   return picks;
 };
 
-const ensureDefaultProjects = (entries: Project[]): Project[] => {
-  const map = new Map(entries.map((project) => [project.id, normalizeProject(project)]));
-  PROJECTS.forEach((defaultProject) => {
-    if (!map.has(defaultProject.id)) {
-      map.set(defaultProject.id, normalizeProject({ ...defaultProject, archived: false }));
+// Purge all old versioned keys so stale projects never resurface
+const purgeOldProjectKeys = (): void => {
+  if (typeof window === 'undefined') return;
+  const toDelete: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const key = window.localStorage.key(i);
+    if (key && key.startsWith(DEV_STORAGE_PREFIX) && key !== DEV_STORAGE_KEY) {
+      toDelete.push(key);
     }
+  }
+  toDelete.forEach((k) => {
+    window.localStorage.removeItem(k);
+    console.log(`[Admin] Purged stale cache key: ${k}`);
   });
-  return sortProjects([...map.values()]);
+};
+
+const seedFreshProjects = (): Project[] => {
+  const seeded = sortProjects(normalizeProjects(PROJECTS));
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(seeded));
+  }
+  return seeded;
 };
 
 const readDevProjects = (): Project[] => {
-  if (typeof window === 'undefined') return PROJECTS;
+  if (typeof window === 'undefined') return sortProjects(normalizeProjects(PROJECTS));
+  purgeOldProjectKeys();
   const raw = window.localStorage.getItem(DEV_STORAGE_KEY);
-  if (!raw) {
-    const seeded = ensureDefaultProjects(normalizeProjects(PROJECTS));
-    window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
-  }
+  if (!raw) return seedFreshProjects();
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      const seeded = ensureDefaultProjects(normalizeProjects(PROJECTS));
-      window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(seeded));
-      return seeded;
-    }
-    return ensureDefaultProjects(normalizeProjects(parsed as Project[]));
+    if (!Array.isArray(parsed) || parsed.length === 0) return seedFreshProjects();
+
+    const canonicalIds = new Set(PROJECTS.map((p) => p.id));
+    const baseMap = new Map<string, Project>(normalizeProjects(PROJECTS).map((p) => [p.id, p]));
+    const additions: Project[] = [];
+
+    (parsed as Project[]).forEach((p) => {
+      if (canonicalIds.has(p.id)) {
+        // Merge cached edits into the canonical base
+        const base = baseMap.get(p.id)!;
+        baseMap.set(p.id, { ...base, ...p });
+      } else {
+        additions.push(normalizeProject(p));
+      }
+    });
+
+    return sortProjects([...baseMap.values(), ...additions]);
   } catch (err) {
     console.warn('[Admin] Failed to parse local dev projects, resetting store', err);
-    const seeded = ensureDefaultProjects(normalizeProjects(PROJECTS));
-    window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
+    return seedFreshProjects();
   }
 };
 
@@ -245,7 +268,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const [projects, setProjects] = useState<Project[]>(ensureDefaultProjects(normalizeProjects(PROJECTS)));
+  const [projects, setProjects] = useState<Project[]>(sortProjects(normalizeProjects(PROJECTS)));
   const [existingIds, setExistingIds] = useState<string[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -258,8 +281,11 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ projectId: string; url: string } | null>(null);
   const [projectConfirm, setProjectConfirm] = useState<string | null>(null);
   const [bulkRestoreConfirm, setBulkRestoreConfirm] = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ projectId: string; gallery: GalleryKey; count: number } | null>(null);
+  const [fadingImages, setFadingImages] = useState<Set<string>>(new Set());
   const [diagnostics, setDiagnostics] = useState<{ context: string; detail: string; time: number } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProject, setNewProject] = useState<NewProjectDraft>(createNewProjectDraft(PROJECTS.length + 1));
   const [showArchived, setShowArchived] = useState(false);
@@ -366,66 +392,53 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     const projectQuery = query(colRef, orderBy('displayOrder', 'asc'));
 
     const unsub = onSnapshot(projectQuery, (snap) => {
-      if (snap.empty) {
-        const empty = ensureDefaultProjects(normalizeProjects(PROJECTS));
-        setProjects(empty);
-        setExistingIds(empty.filter((p) => !p.archived).map((p) => p.id));
-        setLoadingProjects(false);
-        writeDevProjects(empty);
-        return;
-      }
-
+      // Protection: Only projects with these canonical IDs appear for base work
+      const canonicalIds = new Set(PROJECTS.map((p) => p.id));
       const baseMap = new Map<string, Project>(PROJECTS.map((p) => [p.id, normalizeProject(p)]));
-      const additions: Project[] = [];
       const ids: string[] = [];
 
-      snap.forEach((docSnap) => {
-        const data = docSnap.data();
-        const archived = Boolean(data.isDeleted);
-        if (!archived) ids.push(docSnap.id);
-        const base = baseMap.get(docSnap.id);
-        const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : base?.galleries.finished ?? [];
-        const development = Array.isArray(data.galleries?.development) ? data.galleries.development : base?.galleries.development ?? [];
+      if (!snap.empty) {
+        snap.forEach((docSnap) => {
+          // Block any doc that isn't a canonical project (prevents Pune/Delhi reappear)
+          if (!canonicalIds.has(docSnap.id)) return;
 
-        const coverImage = typeof data.imageUrl === 'string' && data.imageUrl.trim().length > 0
-          ? data.imageUrl
-          : base?.imageUrl ?? finished[0] ?? development[0] ?? FALLBACK_IMAGE;
+          const data = docSnap.data();
+          const archived = Boolean(data.isDeleted);
+          if (!archived) ids.push(docSnap.id);
 
-        const merged: Project = {
-          id: docSnap.id,
-          title: data.title ?? base?.title ?? 'Untitled Project',
-          location: data.location ?? base?.location ?? 'Location coming soon',
-          category: data.category ?? base?.category ?? 'Projects',
-          type: data.type ?? base?.type ?? 'ARCHITECTURE',
-          subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-          imageUrl: coverImage,
-          galleries: {
-            finished,
-            development,
-          },
-          published: archived ? false : (data.published ?? base?.published ?? false),
-          description: data.description ?? base?.description,
-          displayOrder: data.displayOrder ?? base?.displayOrder,
-          createdAt: data.createdAt ?? base?.createdAt,
-          updatedAt: data.updatedAt ?? base?.updatedAt,
-          archived,
-        };
+          const base = baseMap.get(docSnap.id);
 
-        if (base) {
-          baseMap.set(docSnap.id, merged);
-        } else {
-          additions.push(merged);
-        }
-      });
+          // Use Firestore data if present, otherwise fallback to constants.ts
+          const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
+          const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
-      const mergedProjects = normalizeProjects([...baseMap.values(), ...additions]);
+          baseMap.set(docSnap.id, {
+            id: docSnap.id,
+            title: data.title ?? base?.title ?? 'Untitled Project',
+            location: data.location ?? base?.location ?? 'Mumbai',
+            category: data.category ?? base?.category ?? 'Residential',
+            type: data.type ?? base?.type ?? 'INTERIOR DESIGN',
+            subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
+            imageUrl: data.imageUrl ?? base?.imageUrl ?? (finished[0] || ''),
+            galleries: { finished, development },
+            published: archived ? false : (data.published ?? base?.published ?? false),
+            description: data.description ?? base?.description,
+            displayOrder: data.displayOrder ?? base?.displayOrder,
+            createdAt: data.createdAt ?? base?.createdAt,
+            updatedAt: data.updatedAt ?? base?.updatedAt,
+            archived,
+          });
+        });
+      }
+
+      const mergedProjects = normalizeProjects([...baseMap.values()]);
       setProjects(mergedProjects);
       setExistingIds([...new Set([...ids, ...mergedProjects.filter((p) => p.archived).map((p) => p.id)])]);
       setLoadingProjects(false);
       writeDevProjects(mergedProjects);
     }, (error) => {
       reportError('Firestore listener failed', error, 'Live sync unavailable, using defaults');
-      const fallback = ensureDefaultProjects(normalizeProjects(PROJECTS));
+      const fallback = sortProjects(normalizeProjects(PROJECTS));
       setProjects(fallback);
       setExistingIds(fallback.filter((p) => !p.archived).map((p) => p.id));
       setLoadingProjects(false);
@@ -483,6 +496,8 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     [activeGalleryTab]
   );
 
+  const [, startTransition] = useTransition();
+
   const updateDraft = useCallback((projectId: string, mutator: (draft: Project) => void) => {
     setDrafts((prev) => {
       const existing = prev[projectId];
@@ -504,8 +519,10 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
   const updateDraftField = useCallback(
     (projectId: string, field: keyof Project, value: unknown) => {
-      updateDraft(projectId, (draft) => {
-        (draft as any)[field] = value;
+      startTransition(() => {
+        updateDraft(projectId, (draft) => {
+          (draft as any)[field] = value;
+        });
       });
     },
     [updateDraft]
@@ -633,31 +650,28 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     });
   }, []);
 
-  const addImageToGallery = useCallback(async (projectId: string, gallery: GalleryKey, url: string): Promise<boolean> => {
-    if (!url) return false;
-    if (allImages.has(url)) {
-      flash('err', 'Image already used elsewhere');
+  const addImagesToGallery = useCallback(async (projectId: string, gallery: GalleryKey, urls: string[]): Promise<boolean> => {
+    if (!urls || urls.length === 0) return false;
+
+    // Filter out duplicates that might already exist in any gallery
+    const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
+    if (!project) {
+      flash('err', 'Project not found');
       return false;
     }
 
-    const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
-    if (!project) {
-      console.error('[Admin] addImageToGallery: project not found for id', projectId);
-      flash('err', 'Project not found — try refreshing the page');
-      return false;
-    }
+    const existingUrls = new Set([...project.galleries.finished, ...project.galleries.development]);
+    const uniqueNewUrls = urls.filter(u => !existingUrls.has(u));
+
+    if (uniqueNewUrls.length === 0) return true;
 
     const nextGalleries: Project['galleries'] = {
       finished: [...project.galleries.finished],
       development: [...project.galleries.development],
     };
 
-    if (nextGalleries[gallery].includes(url)) {
-      flash('err', 'Image already in this gallery');
-      return false;
-    }
+    uniqueNewUrls.forEach(u => nextGalleries[gallery].push(u));
 
-    nextGalleries[gallery].push(url);
     const cover = project.imageUrl || nextGalleries.finished[0] || nextGalleries.development[0] || '';
 
     updateDraft(projectId, (draft) => {
@@ -680,13 +694,6 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       return true;
     }
 
-    // Data URLs (local files) are too large for Firestore (1MB doc limit).
-    // The user must upload to a hosting service and paste the URL instead.
-    if (url.startsWith('data:')) {
-      flash('err', 'Videos/images from your computer can\'t be saved to the database. Please upload to a hosting service and paste the URL.');
-      return false;
-    }
-
     try {
       await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
         galleries: nextGalleries,
@@ -696,17 +703,19 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       }, { merge: true });
       return true;
     } catch (err) {
-      reportError('Failed to add image', err, 'Could not add image');
+      reportError('Failed to add images', err, 'Could not add images');
       return false;
     }
-  }, [allImages, applyDevProjects, devBypass, drafts, flash, projects, reportError, updateDraft]);
+  }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, updateDraft]);
+
+  const addImageToGallery = useCallback(async (projectId: string, gallery: GalleryKey, url: string): Promise<boolean> => {
+    return addImagesToGallery(projectId, gallery, [url]);
+  }, [addImagesToGallery]);
 
   const handleAddImageUrl = useCallback(async (projectId: string) => {
     const gallery = getActiveGallery(projectId);
     const url = (urlDrafts[projectId] ?? '').trim();
     if (!url) return;
-
-    console.log('[Admin] Adding URL:', url, '| gallery:', gallery, '| projectId:', projectId);
 
     // Allow local public/ paths like /my-video.mp4
     const isLocalPath = url.startsWith('/');
@@ -720,103 +729,128 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       }
     }
 
+    // Duplicate check
+    const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
+    if (project) {
+      const allUrls = [...project.galleries.finished, ...project.galleries.development];
+      if (allUrls.includes(url)) {
+        flash('err', 'This image/video is already in the gallery');
+        return;
+      }
+    }
+
     const isVideo = /\.(mp4|mov|webm|ogv)/i.test(url) || url.includes('video');
 
     const success = await addImageToGallery(projectId, gallery, url);
-    console.log('[Admin] addImageToGallery result:', success);
     if (success) {
       setUrlDrafts((prev) => ({ ...prev, [projectId]: '' }));
-      flash('ok', isVideo ? 'Video added — scroll down to see it' : 'Media added');
+      flash('ok', isVideo ? 'Video added' : 'Media added');
     } else {
-      // Only show generic fallback if no specific error was already shown
       flash('err', 'Could not add — check the browser console for details');
     }
-  }, [addImageToGallery, flash, getActiveGallery, urlDrafts]);
+  }, [addImageToGallery, drafts, flash, getActiveGallery, projects, urlDrafts]);
 
   const handleFileUpload = useCallback(async (files: FileList | null) => {
     const target = uploadTargetRef.current;
     if (!files || files.length === 0 || !target) return;
     debugInfo('Upload start', `${files.length} file(s) to ${target.projectId}/${target.gallery}`);
-    setUploading(true);
-    let added = 0;
-    let skipped = 0;
+    const project = drafts[target.projectId] ?? projects.find((p) => p.id === target.projectId);
+    // Extract "filenames" from existing URLs to detect duplicates
+    const existingFilenames = new Set(
+      [...(project?.galleries.finished ?? []), ...(project?.galleries.development ?? [])]
+        .map(url => {
+          if (url.startsWith('data:')) return '';
+          return url.split('/').pop()?.split('?')[0]?.toLowerCase() ?? '';
+        })
+        .filter(Boolean)
+    );
 
-    if (devBypass) {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) { skipped++; continue; }
+    setUploading(true);
+    setUploadProgress({ current: 0, total: files.length });
+
+    let skipped = 0;
+    let duplicateCount = 0;
+    const urlsToBatch: string[] = [];
+    const fileArray = Array.from(files);
+
+    const CHUNK_SIZE = 3;
+    for (let i = 0; i < fileArray.length; i += CHUNK_SIZE) {
+      const chunk = fileArray.slice(i, i + CHUNK_SIZE);
+      await Promise.all(chunk.map(async (file) => {
+        const fileName = file.name.toLowerCase();
+
+        // 1. Check for filename duplicate
+        if (existingFilenames.has(fileName)) {
+          duplicateCount++;
+          setUploadProgress(p => p ? { ...p, current: p.current + 1 } : null);
+          return;
+        }
+
+        // 2. Check for valid file type
+        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+          skipped++;
+          setUploadProgress(p => p ? { ...p, current: p.current + 1 } : null);
+          return;
+        }
+
         try {
           if (file.type.startsWith('video/')) {
             if (file.size > 50 * 1024 * 1024) {
-              flash('err', `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Max 50MB — or paste a URL instead.`);
+              flash('err', `"${file.name}" is too large (max 50MB).`);
               skipped++;
-              continue;
+            } else {
+              const dataUrl: string = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsDataURL(file);
+              });
+              if (devBypass) urlsToBatch.push(dataUrl);
+              else { flash('err', `Video "${file.name}": Please paste a link.`); skipped++; }
+            }
+          } else {
+            if (devBypass) {
+              const dataUrl: string = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsDataURL(file);
+              });
+              urlsToBatch.push(dataUrl);
+            } else {
+              const downloadUrl = await uploadToImgBB(file);
+              urlsToBatch.push(downloadUrl);
             }
           }
-          const dataUrl: string = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
-          });
-          const success = await addImageToGallery(target.projectId, target.gallery, dataUrl);
-          if (success) added++;
         } catch (err) {
-          reportError('Dev upload failed', err);
+          reportError('Upload failed for ' + file.name, err);
+        } finally {
+          setUploadProgress(p => p ? { ...p, current: p.current + 1 } : null);
         }
-      }
-
-      setUploading(false);
-      uploadTargetRef.current = null;
-      setUploadTarget(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (added > 0) {
-        flash('ok', `${added} file${added === 1 ? '' : 's'} uploaded`);
-      } else if (skipped > 0) {
-        flash('err', `${skipped} file${skipped === 1 ? '' : 's'} skipped — images only. For videos, paste a URL below.`);
-      }
-      return;
+      }));
     }
 
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) { skipped++; continue; }
-      try {
-        if (file.type.startsWith('video/')) {
-          if (file.size > 50 * 1024 * 1024) {
-            flash('err', `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Max 50MB — or paste a URL instead.`);
-            skipped++;
-            continue;
-          }
-          const dataUrl: string = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
-          });
-          const success = await addImageToGallery(target.projectId, target.gallery, dataUrl);
-          if (success) added++;
-        } else {
-          const downloadUrl = await uploadToImgBB(file);
-          const success = await addImageToGallery(target.projectId, target.gallery, downloadUrl);
-          if (success) added++;
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Upload failed';
-        reportError('Upload failed', err, msg);
+    if (urlsToBatch.length > 0) {
+      const success = await addImagesToGallery(target.projectId, target.gallery, urlsToBatch);
+      if (success) {
+        let msg = `${urlsToBatch.length} file${urlsToBatch.length === 1 ? '' : 's'} added`;
+        if (duplicateCount > 0) msg += ` (${duplicateCount} skipped as duplicates)`;
+        flash('ok', msg);
       }
+    } else if (duplicateCount > 0) {
+      flash('err', `${duplicateCount} files already exist in this project.`);
     }
 
     setUploading(false);
+    setUploadProgress(null);
     uploadTargetRef.current = null;
     setUploadTarget(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (added > 0) {
-      flash('ok', `${added} image${added === 1 ? '' : 's'} uploaded`);
-    } else if (skipped > 0 && added === 0) {
-      flash('err', `${skipped} file${skipped === 1 ? '' : 's'} skipped — images only. For videos, paste a URL below.`);
-    } else if (added === 0) {
-      flash('err', 'Upload failed — no images were added');
+
+    if (skipped > 0 && urlsToBatch.length === 0 && duplicateCount === 0) {
+      flash('err', `Upload failed or skipped ${skipped} files.`);
     }
-  }, [addImageToGallery, debugInfo, devBypass, flash, reportError]);
+  }, [addImagesToGallery, debugInfo, devBypass, flash, reportError]);
 
   const handleRemoveImage = useCallback(async (projectId: string, url: string) => {
     const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
@@ -834,51 +868,32 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       return;
     }
 
-    if (!devBypass && url.includes('firebasestorage.googleapis.com')) {
-      try {
-        const storageRef = ref(storage, url);
-        await deleteObject(storageRef);
-      } catch (err) {
-        console.warn('[Admin] Storage delete failed', err);
-      }
-    }
-
     const cover = project.imageUrl === url
       ? nextGalleries.finished[0] ?? nextGalleries.development[0] ?? ''
       : project.imageUrl;
 
+    // Update local state FIRST (instant UI response)
     updateDraft(projectId, (draft) => {
       draft.galleries = nextGalleries;
       draft.imageUrl = cover;
     });
+    flash('ok', 'Image removed');
+    setDeleteConfirm(null);
 
     if (devBypass) {
-      applyDevProjects((prev) => prev.map((p) => {
-        if (p.id !== projectId) return p;
-        return {
-          ...p,
-          galleries: nextGalleries,
-          imageUrl: cover,
-          updatedAt: Date.now(),
-        };
-      }));
-      flash('ok', 'Image removed');
-      setDeleteConfirm(null);
+      applyDevProjects((prev) => prev.map((p) => p.id !== projectId ? p : { ...p, galleries: nextGalleries, imageUrl: cover, updatedAt: Date.now() }));
       return;
     }
 
-    try {
-      await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
-        galleries: nextGalleries,
-        imageUrl: cover,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-      flash('ok', 'Image removed');
-    } catch (err) {
-      reportError('Failed to remove image', err, 'Could not remove image');
-    }
+    // Fire-and-forget to Firestore (don't block UI)
+    setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
+      galleries: nextGalleries, imageUrl: cover, updatedAt: serverTimestamp(),
+    }, { merge: true }).catch((err) => reportError('Failed to remove image', err));
 
-    setDeleteConfirm(null);
+    // Clean up storage in background
+    if (url.includes('firebasestorage.googleapis.com')) {
+      deleteObject(ref(storage, url)).catch(() => { });
+    }
   }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, updateDraft]);
 
   // ─── Move image between galleries ───
@@ -898,25 +913,17 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     nextGalleries[toGallery].push(url);
 
     updateDraft(projectId, (draft) => { draft.galleries = nextGalleries; });
+    flash('ok', `Moved to ${toGallery}`);
 
     if (devBypass) {
-      applyDevProjects((prev) => prev.map((p) => {
-        if (p.id !== projectId) return p;
-        return { ...p, galleries: nextGalleries, updatedAt: Date.now() };
-      }));
-      flash('ok', `Image moved to ${toGallery}`);
+      applyDevProjects((prev) => prev.map((p) => p.id !== projectId ? p : { ...p, galleries: nextGalleries, updatedAt: Date.now() }));
       return;
     }
 
-    try {
-      await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
-        galleries: nextGalleries,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-      flash('ok', `Image moved to ${toGallery}`);
-    } catch (err) {
-      reportError('Failed to move image', err, 'Could not move image');
-    }
+    // Fire-and-forget
+    setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
+      galleries: nextGalleries, updatedAt: serverTimestamp(),
+    }, { merge: true }).catch((err) => reportError('Failed to move image', err));
   }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, updateDraft]);
 
   // ─── Reorder images within a gallery via drag & drop ───
@@ -1065,22 +1072,26 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     if (!urls || urls.size === 0) return;
     const project = drafts[projectId] ?? projects.find((p) => p.id === projectId);
     if (!project) return;
+
+
+
     const nextGalleries: Project['galleries'] = {
       finished: project.galleries.finished.filter((u) => !urls.has(u)),
       development: project.galleries.development.filter((u) => !urls.has(u)),
     };
     const cover = urls.has(project.imageUrl) ? (nextGalleries.finished[0] ?? nextGalleries.development[0] ?? '') : project.imageUrl;
     updateDraft(projectId, (draft) => { draft.galleries = nextGalleries; draft.imageUrl = cover; });
+    flash('ok', `${urls.size} image${urls.size > 1 ? 's' : ''} deleted`);
+    setSelectedImages((prev) => { const next = { ...prev }; delete next[projectId]; return next; });
+    setBulkDeleteConfirm(null);
 
     if (devBypass) {
       applyDevProjects((prev) => prev.map((p) => p.id !== projectId ? p : { ...p, galleries: nextGalleries, imageUrl: cover, updatedAt: Date.now() }));
     } else {
-      try {
-        await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), { galleries: nextGalleries, imageUrl: cover, updatedAt: serverTimestamp() }, { merge: true });
-      } catch (err) { reportError('Bulk delete failed', err, 'Could not delete images'); return; }
+      // Fire-and-forget
+      setDoc(doc(db, FIRESTORE_COLLECTION, projectId), { galleries: nextGalleries, imageUrl: cover, updatedAt: serverTimestamp() }, { merge: true })
+        .catch((err) => reportError('Bulk delete failed', err));
     }
-    flash('ok', `${urls.size} image${urls.size > 1 ? 's' : ''} deleted`);
-    setSelectedImages((prev) => { const next = { ...prev }; delete next[projectId]; return next; });
   }, [applyDevProjects, devBypass, drafts, flash, projects, reportError, selectedImages, updateDraft]);
 
   // ─── Feature 6: Export JSON backup ───
@@ -1125,7 +1136,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           handleSaveProject(projectId);
         }
       });
-    }, 2000); // 2 second debounce
+    }, 4000); // 4 second debounce
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [drafts, hasDirtyDrafts, handleSaveProject]);
 
@@ -1590,7 +1601,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 <button
                   type="submit"
                   disabled={loginLoading || !loginEmail || !loginPassword}
-                  className="w-full py-3.5 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 active:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3.5 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 active:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {loginLoading ? (
                     <>
@@ -1624,7 +1635,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   return (
     <div className="w-full min-h-screen bg-[#F8F9FB] pt-28 pb-32 px-4 md:px-8 lg:px-12">
       {toast && (
-        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-md border text-sm font-semibold animate-fade-in-up flex items-center gap-3 ${toast.type === 'ok' ? 'bg-white/80 border-emerald-100 text-emerald-800' : 'bg-white/80 border-red-100 text-red-800'
+        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-4 rounded-2xl shadow-2xl  border text-sm font-semibold animate-fade-in-up flex items-center gap-3 ${toast.type === 'ok' ? 'bg-white/80 border-emerald-100 text-emerald-800' : 'bg-white/80 border-red-100 text-red-800'
           }`}>
           <div className={`w-2 h-2 rounded-full ${toast.type === 'ok' ? 'bg-emerald-500' : 'bg-red-500'}`} />
           {toast.msg}
@@ -1651,9 +1662,38 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               </button>
               <button
                 onClick={() => handleRemoveImage(deleteConfirm.projectId, deleteConfirm.url)}
-                className="flex-1 py-3.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 shadow-lg shadow-red-200 transition-all hover:scale-[1.02]"
+                className="flex-1 py-3.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 shadow-lg shadow-red-200 transition-colors "
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──── Bulk Delete Confirmation Modal ──── */}
+      {bulkDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-5 border border-white/20">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-2">
+              <Trash2 size={24} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-gray-900">Delete {bulkDeleteConfirm.count} image{bulkDeleteConfirm.count > 1 ? 's' : ''}?</h3>
+              <p className="text-sm text-gray-500">This will permanently remove the selected images from the <strong>{bulkDeleteConfirm.gallery}</strong> gallery. This cannot be undone.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setBulkDeleteConfirm(null)}
+                className="flex-1 py-3.5 rounded-xl border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleBulkDeleteImages(bulkDeleteConfirm.projectId, bulkDeleteConfirm.gallery)}
+                className="flex-1 py-3.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 shadow-lg shadow-red-200 transition-colors "
+              >
+                Delete All
               </button>
             </div>
           </div>
@@ -1681,7 +1721,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               </button>
               <button
                 onClick={handleDeleteProject}
-                className="flex-1 py-3.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 shadow-lg shadow-red-200 transition-all hover:scale-[1.02]"
+                className="flex-1 py-3.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 shadow-lg shadow-red-200 transition-colors "
               >
                 Archive
               </button>
@@ -1711,7 +1751,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               </button>
               <button
                 onClick={handleRestoreAllArchived}
-                className="flex-1 py-3.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 shadow-lg transition-all hover:scale-[1.02]"
+                className="flex-1 py-3.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 shadow-lg transition-colors "
               >
                 Restore All
               </button>
@@ -1744,7 +1784,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                     onChange={(e) => setNewProject((prev) => ({ ...prev, title: e.target.value }))}
                     required
                     placeholder="e.g. Modern Villa"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-colors bg-gray-50/50 focus:bg-white"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1754,7 +1794,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                     onChange={(e) => setNewProject((prev) => ({ ...prev, location: e.target.value }))}
                     required
                     placeholder="e.g. Beverly Hills, CA"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-colors bg-gray-50/50 focus:bg-white"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1763,7 +1803,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                     value={newProject.category}
                     onChange={(e) => setNewProject((prev) => ({ ...prev, category: e.target.value }))}
                     placeholder="e.g. Residential"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-colors bg-gray-50/50 focus:bg-white"
                   />
                 </div>
               </div>
@@ -1775,7 +1815,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                     <select
                       value={newProject.type}
                       onChange={(e) => setNewProject((prev) => ({ ...prev, type: e.target.value as Project['type'] }))}
-                      className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white cursor-pointer"
+                      className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-colors bg-gray-50/50 focus:bg-white cursor-pointer"
                     >
                       {TYPE_OPTIONS.map((option) => (
                         <option key={option} value={option}>{option}</option>
@@ -1790,7 +1830,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                     <select
                       value={newProject.subCategory}
                       onChange={(e) => setNewProject((prev) => ({ ...prev, subCategory: e.target.value as Project['subCategory'] }))}
-                      className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all bg-gray-50/50 focus:bg-white cursor-pointer"
+                      className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-colors bg-gray-50/50 focus:bg-white cursor-pointer"
                     >
                       {SUBCATEGORY_OPTIONS.map((option) => (
                         <option key={option} value={option}>{option}</option>
@@ -1824,7 +1864,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               </button>
               <button
                 type="submit"
-                className="flex-[2] py-4 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 shadow-xl shadow-black/10 transition-all hover:scale-[1.01]"
+                className="flex-[2] py-4 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 shadow-xl shadow-black/10 transition-colors hover:scale-[1.01]"
               >
                 Create Project
               </button>
@@ -1838,11 +1878,23 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
       {uploading && (
         <div className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
+          <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl min-w-[280px]">
             <div className="relative">
-              <div className="w-12 h-12 rounded-full border-4 border-gray-100 border-t-black animate-spin" />
+              <div className="w-16 h-16 rounded-full border-4 border-gray-100 border-t-black animate-spin" />
+              {uploadProgress && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[10px] font-bold">{Math.round((uploadProgress.current / uploadProgress.total) * 100)}%</span>
+                </div>
+              )}
             </div>
-            <p className="text-sm font-semibold tracking-wide">Uploading Assets...</p>
+            <div className="text-center">
+              <p className="text-sm font-semibold tracking-wide">Uploading Assets...</p>
+              {uploadProgress && (
+                <p className="text-[10px] text-gray-500 font-medium mt-1">
+                  Processing {uploadProgress.current} of {uploadProgress.total}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1852,7 +1904,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
       <div className="max-w-7xl mx-auto space-y-8">
         {/* ──── SECTION 1: Header & Controls ──── */}
-        <div className="sticky top-4 z-[40] bg-white/80 backdrop-blur-xl border border-white/40 shadow-sm rounded-3xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300">
+        <div className="sticky top-4 z-[40] bg-white/80 backdrop-blur-xl border border-white/40 shadow-sm rounded-3xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-300">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-black text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg shadow-black/20">
               S
@@ -1894,7 +1946,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             <button
               data-tour="new-project-btn"
               onClick={openNewProjectModal}
-              className="ml-2 px-5 py-2.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 shadow-lg shadow-black/20 hover:scale-[1.02] transition-all whitespace-nowrap flex items-center gap-2"
+              className="ml-2 px-5 py-2.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 shadow-lg shadow-black/20  transition-colors whitespace-nowrap flex items-center gap-2"
             >
               <Plus size={16} strokeWidth={3} />
               <span className="hidden sm:inline">New Project</span>
@@ -1915,7 +1967,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             ].map((stat, i) => {
               const Icon = stat.icon || LayoutGrid; // Fallback
               return (
-                <div key={i} className={`relative overflow-hidden rounded-3xl p-5 border ${stat.border} ${stat.bg} transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]`}>
+                <div key={i} className={`relative overflow-hidden rounded-3xl p-5 border ${stat.border} ${stat.bg} transition-colors duration-300 hover:shadow-lg `}>
                   <div className="relative z-10 flex flex-col h-full justify-between">
                     <div className={`w-8 h-8 rounded-full bg-white/60 flex items-center justify-center mb-3 ${stat.text}`}>
                       <Icon size={16} />
@@ -1953,7 +2005,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Find a project..."
-                className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white focus:border-gray-200 transition-all placeholder:text-gray-400"
+                className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white focus:border-gray-200 transition-colors placeholder:text-gray-400"
               />
             </div>
 
@@ -1963,7 +2015,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 setExpandedId(null);
                 setShowArchived((prev) => !prev);
               }}
-              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border transition-all ${showArchived
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border transition-colors ${showArchived
                 ? 'bg-gray-900 text-white border-gray-900'
                 : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                 }`}
@@ -2048,7 +2100,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               {!showArchived && (
                 <button
                   onClick={openNewProjectModal}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white text-sm font-bold rounded-xl hover:bg-gray-800 shadow-xl shadow-black/10 transition-all hover:scale-[1.02] mt-2"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white text-sm font-bold rounded-xl hover:bg-gray-800 shadow-xl shadow-black/10 transition-colors  mt-2"
                 >
                   <Plus size={16} strokeWidth={3} />
                   Create Project
@@ -2096,9 +2148,9 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                       setProjectDragOverIdx(null);
                     }}
                     onDragEnd={() => { setProjectDragIdx(null); setProjectDragOverIdx(null); }}
-                    className={`group bg-white rounded-3xl border transition-all duration-300 will-change-transform ${isOpen
+                    className={`group bg-white rounded-3xl border transition-colors duration-300 will-change-transform ${isOpen
                       ? 'col-span-full shadow-2xl ring-1 ring-black/5 scale-[1.005] z-20'
-                      : 'shadow-sm hover:shadow-xl hover:translate-y-[-4px] hover:border-gray-300'
+                      : 'shadow-sm hover:shadow-xl  hover:border-gray-300'
                       } ${isProjectDragging ? 'opacity-40 scale-95 border-dashed border-gray-400 cursor-grabbing' : ''
                       } ${isProjectDragOver ? 'border-blue-500 ring-2 ring-blue-200 scale-[1.02] z-10' : 'border-gray-100'
                       } ${isSelected ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/10' : ''
@@ -2121,13 +2173,13 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
                         {/* Top Badges */}
                         <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-white/90 text-gray-900 backdrop-blur-md shadow-sm">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-white/90 text-gray-900  shadow-sm">
                             {draft.type}
                           </span>
                         </div>
 
                         <div className="absolute top-4 right-4 z-20">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border backdrop-blur-md shadow-sm flex items-center gap-1.5 ${statusClass}`}>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border  shadow-sm flex items-center gap-1.5 ${statusClass}`}>
                             <div className={`w-1.5 h-1.5 rounded-full ${isArchived ? 'bg-red-500' : draft.published ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                             {statusLabel}
                           </span>
@@ -2173,7 +2225,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                           return next;
                                         });
                                       }}
-                                      className="appearance-none w-5 h-5 rounded border-2 border-gray-300 checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer"
+                                      className="appearance-none w-5 h-5 rounded border-2 border-gray-300 checked:bg-blue-600 checked:border-blue-600 transition-colors cursor-pointer"
                                     />
                                     <CheckSquare size={14} className={`absolute pointer-events-none text-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
                                   </label>
@@ -2202,7 +2254,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                 <button
                                   data-tour={projectIndex === 0 ? 'publish-toggle-0' : undefined}
                                   onClick={(e) => { e.stopPropagation(); handleQuickTogglePublish(project.id); }}
-                                  className={`p-2 rounded-xl transition-all border ${project.published ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' : 'bg-gray-50 text-gray-400 border-gray-100 hover:bg-gray-100 hover:text-gray-600'}`}
+                                  className={`p-2 rounded-xl transition-colors border ${project.published ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' : 'bg-gray-50 text-gray-400 border-gray-100 hover:bg-gray-100 hover:text-gray-600'}`}
                                   title={project.published ? 'Unpublish' : 'Publish'}
                                 >
                                   {project.published ? <Eye size={16} /> : <EyeOff size={16} />}
@@ -2232,7 +2284,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                         <div className="absolute top-6 right-6 z-20">
                           <button
                             onClick={() => setExpandedId(null)}
-                            className="p-2 rounded-full bg-white text-gray-400 hover:text-black hover:bg-gray-100 shadow-sm border border-gray-100 transition-all hover:scale-105"
+                            className="p-2 rounded-full bg-white text-gray-400 hover:text-black hover:bg-gray-100 shadow-sm border border-gray-100 transition-colors "
                             title="Close Editor"
                           >
                             <X size={20} />
@@ -2261,7 +2313,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                   <input
                                     value={draft.title}
                                     onChange={(e) => updateDraftField(project.id, 'title', e.target.value)}
-                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white"
                                     placeholder="Official Project Name"
                                   />
                                 </div>
@@ -2272,7 +2324,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                     <input
                                       value={draft.location}
                                       onChange={(e) => updateDraftField(project.id, 'location', e.target.value)}
-                                      className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                      className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white"
                                       placeholder="City, Country"
                                     />
                                   </div>
@@ -2285,7 +2337,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                       <select
                                         value={draft.type}
                                         onChange={(e) => updateDraftField(project.id, 'type', e.target.value as Project['type'])}
-                                        className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white cursor-pointer"
+                                        className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white cursor-pointer"
                                       >
                                         {TYPE_OPTIONS.map((option) => (
                                           <option key={option} value={option}>{option}</option>
@@ -2300,7 +2352,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                       <select
                                         value={draft.subCategory}
                                         onChange={(e) => updateDraftField(project.id, 'subCategory', e.target.value as Project['subCategory'])}
-                                        className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white cursor-pointer"
+                                        className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white cursor-pointer"
                                       >
                                         {SUBCATEGORY_OPTIONS.map((option) => (
                                           <option key={option} value={option}>{option}</option>
@@ -2316,7 +2368,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                   <input
                                     value={draft.category}
                                     onChange={(e) => updateDraftField(project.id, 'category', e.target.value)}
-                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white"
                                     placeholder="e.g. Residential, Commercial"
                                   />
                                 </div>
@@ -2331,7 +2383,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                       const parsed = value === '' ? null : Number(value);
                                       updateDraftField(project.id, 'displayOrder', parsed === null || Number.isNaN(parsed) ? null : parsed);
                                     }}
-                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white"
                                     placeholder="Sort Order (e.g. 1, 2, 3)"
                                   />
                                 </div>
@@ -2358,7 +2410,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                   value={draft.description ?? ''}
                                   onChange={(e) => updateDraftField(project.id, 'description', e.target.value)}
                                   rows={4}
-                                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white resize-none"
+                                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white resize-none"
                                   placeholder="Add a brief description of the project..."
                                 />
                               </div>
@@ -2400,7 +2452,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                       <Image size={40} />
                                     </div>
                                   )}
-                                  <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10 uppercase tracking-widest">
+                                  <div className="absolute top-3 left-3 bg-black/80  text-white text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10 uppercase tracking-widest">
                                     Active Cover
                                   </div>
                                 </div>
@@ -2412,7 +2464,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                       coverUploadTarget.current = project.id;
                                       coverInputRef.current?.click();
                                     }}
-                                    className="flex-1 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:text-black hover:border-black hover:bg-gray-50 transition-all group"
+                                    className="flex-1 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:text-black hover:border-black hover:bg-gray-50 transition-colors group"
                                   >
                                     <Upload size={24} className="group-hover:-translate-y-1 transition-transform" />
                                     <span className="text-xs font-bold uppercase tracking-wider">Upload New</span>
@@ -2424,7 +2476,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                       value={urlDrafts[`cover_${project.id}`] ?? ''}
                                       onChange={(e) => setUrlDrafts((prev) => ({ ...prev, [`cover_${project.id}`]: e.target.value }))}
                                       placeholder="Paste URL..."
-                                      className="w-full border border-gray-200 rounded-xl pl-4 pr-10 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                      className="w-full border border-gray-200 rounded-xl pl-4 pr-10 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white"
                                     />
                                     <button
                                       onClick={async () => {
@@ -2449,7 +2501,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                     <button
                                       key={idx}
                                       onClick={() => handleSetCover(project.id, coverUrl)}
-                                      className={`relative w-24 h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${draft.imageUrl === coverUrl ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-transparent opacity-60 hover:opacity-100 hover:border-gray-300'}`}
+                                      className={`relative w-24 h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${draft.imageUrl === coverUrl ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-transparent opacity-60 hover:opacity-100 hover:border-gray-300'}`}
                                     >
                                       <img src={coverUrl} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).closest('button')!.style.display = 'none'; }} />
                                     </button>
@@ -2468,7 +2520,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                       <button
                                         key={tab}
                                         onClick={() => setActiveGalleryTab((prev) => ({ ...prev, [project.id]: tab }))}
-                                        className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab === tab ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === tab ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                       >
                                         {tab === 'finished' ? 'Finished' : 'Development'} <span className="opacity-40 ml-1">({count})</span>
                                       </button>
@@ -2508,7 +2560,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                     setUploadTarget({ projectId: project.id, gallery: activeTab });
                                     fileInputRef.current?.click();
                                   }}
-                                  className="border-2 border-dashed border-gray-200 rounded-2xl h-24 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-black hover:border-black hover:bg-gray-50 transition-all cursor-pointer"
+                                  className="border-2 border-dashed border-gray-200 rounded-2xl h-24 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-black hover:border-black hover:bg-gray-50 transition-colors cursor-pointer"
                                 >
                                   <div className="flex items-center gap-2">
                                     <Upload size={20} />
@@ -2528,7 +2580,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                   onChange={(e) => setUrlDrafts((prev) => ({ ...prev, [project.id]: e.target.value }))}
                                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddImageUrl(project.id); }}
                                   placeholder="Paste image or video URL here and click Add…"
-                                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-gray-50 focus:bg-white"
+                                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-colors bg-gray-50 focus:bg-white"
                                 />
                                 <button
                                   onClick={() => handleAddImageUrl(project.id)}
@@ -2554,10 +2606,53 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                 <p className="text-[10px] text-amber-600 pt-1">📸 Photos can be uploaded directly using the "Click to Upload" button above.</p>
                               </div>
 
+                              {/* Force Restore Button - Always visible for Base Projects (1-8) to fix broken/stale data */}
+                              {PROJECTS.some(p => p.id === project.id) && (
+                                <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+                                  <button
+                                    onClick={async () => {
+                                      if (!window.confirm(`Is this the canonical project "${project.title}"? \nThis will WIPE all current gallery data and RESTORE the original images from the code base (constants.ts).\n\nUse this if images are broken, missing, or just won't load.`)) return;
+
+                                      const base = PROJECTS.find(p => p.id === project.id);
+                                      if (!base) return;
+
+                                      // Restore from constants
+                                      const cleanGallery = base.galleries[activeTab] || [];
+
+                                      // Update state immediately
+                                      updateDraft(project.id, (d) => {
+                                        d.galleries[activeTab] = cleanGallery;
+                                      });
+
+                                      // Persist to Firestore
+                                      if (!devBypass) {
+                                        try {
+                                          await setDoc(doc(db, FIRESTORE_COLLECTION, project.id), {
+                                            galleries: {
+                                              ...project.galleries,
+                                              [activeTab]: cleanGallery
+                                            },
+                                            updatedAt: serverTimestamp()
+                                          }, { merge: true });
+                                          flash('success', 'Project gallery restored to defaults!');
+                                        } catch (e) {
+                                          console.error(e);
+                                          flash('err', 'Failed to restore in database.');
+                                        }
+                                      }
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-500 text-[10px] font-bold uppercase tracking-wider rounded-md hover:bg-red-50 hover:text-red-600 transition-colors border border-gray-200 hover:border-red-200"
+                                  >
+                                    <RefreshCw size={10} />
+                                    <span>Reset to Default Gallery</span>
+                                  </button>
+                                </div>
+                              )}
+
                               {galleryImages.length === 0 ? (
-                                <div className="text-center py-12 opacity-40">
-                                  <ImageIcon size={48} className="mx-auto mb-2" />
-                                  <p className="text-sm font-medium">No images in this gallery yet.</p>
+                                <div className="text-center py-12 opacity-60 flex flex-col items-center gap-4">
+                                  <ImageIcon size={48} className="mx-auto mb-2 text-gray-300" />
+                                  <p className="text-sm font-medium text-gray-500">No images in this gallery yet.</p>
                                 </div>
                               ) : (
                                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -2587,8 +2682,8 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                           setDragState(null);
                                           setDragOverIndex(null);
                                         }}
-                                        className={`relative aspect-square rounded-xl overflow-hidden group cursor-grab active:cursor-grabbing border-2 transition-all ${isImgSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-gray-200'
-                                          } ${isDragging ? 'opacity-20' : ''} ${isDragOver ? 'scale-105 z-10 ring-2 ring-blue-500' : ''}`}
+                                        className={`relative aspect-square rounded-xl overflow-hidden group cursor-grab active:cursor-grabbing border-2 transition-colors duration-300 ${isImgSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-gray-200'
+                                          } ${isDragging ? 'opacity-20' : ''} ${isDragOver ? 'scale-105 z-10 ring-2 ring-blue-500' : ''} ${fadingImages.has(url) ? 'opacity-0 scale-75 pointer-events-none' : ''}`}
                                       >
                                         {url.startsWith('data:video') || /\.(mp4|mov|webm|ogv|quicktime)$/i.test(url) || url.includes('drive.google.com') || url.includes('youtube.com') || url.includes('youtu.be') || url.includes('pexels.com/video') ? (
                                           <div className="w-full h-full bg-gray-900 flex flex-col items-center justify-center gap-1 pointer-events-none">
@@ -2610,15 +2705,22 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                               onChange={(e) => { e.stopPropagation(); toggleImageSelection(project.id, url); }}
                                               className="w-4 h-4 rounded border-white/50 bg-black/20 checked:bg-blue-500 cursor-pointer"
                                             />
-                                            <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ projectId: project.id, url }); }} className="p-1 bg-red-500/80 text-white rounded hover:bg-red-600 transition-colors">
+                                            <button onClick={(e) => { e.stopPropagation(); handleRemoveImage(project.id, url); }} className="p-1 bg-red-500/80 text-white rounded hover:bg-red-600 transition-colors">
                                               <Trash2 size={12} />
                                             </button>
                                           </div>
                                           <div className="flex justify-center gap-2">
-                                            <button onClick={(e) => { e.stopPropagation(); setImagePreview(url); }} className="p-1.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40" title="View">
+                                            <button onClick={(e) => { e.stopPropagation(); setImagePreview(url); }} className="p-1.5 bg-white/20  rounded-full text-white hover:bg-white/40" title="View">
                                               <Maximize2 size={12} />
                                             </button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleSetCover(project.id, url); }} className={`p-1.5 backdrop-blur-md rounded-full hover:bg-white/40 ${isCover ? 'bg-emerald-500 text-white' : 'bg-white/20 text-white'}`} title="Set as Cover">
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); handleMoveImage(project.id, url, activeTab); }}
+                                              className="p-1.5 bg-white/20  rounded-full text-white hover:bg-amber-500 transition-colors"
+                                              title={`Move to ${activeTab === 'finished' ? 'Development' : 'Finished'}`}
+                                            >
+                                              <ArrowRightLeft size={12} />
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleSetCover(project.id, url); }} className={`p-1.5  rounded-full hover:bg-white/40 ${isCover ? 'bg-emerald-500 text-white' : 'bg-white/20 text-white'}`} title="Set as Cover">
                                               <Star size={12} />
                                             </button>
                                           </div>
@@ -2649,14 +2751,14 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                             {isArchived ? (
                               <button
                                 onClick={() => handleRestoreProject(project.id)}
-                                className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all hover:scale-[1.02] justify-center"
+                                className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-colors  justify-center"
                               >
                                 Restore Project
                               </button>
                             ) : (
                               <button
                                 onClick={() => setProjectConfirm(project.id)}
-                                className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-all border border-red-100 justify-center"
+                                className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors border border-red-100 justify-center"
                               >
                                 Archive Project
                               </button>
@@ -2666,7 +2768,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
                             <button
                               onClick={() => setExpandedId(null)}
-                              className="w-full sm:w-auto px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-gray-800 shadow-lg shadow-black/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+                              className="w-full sm:w-auto px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-gray-800 shadow-lg shadow-black/20 transition-colors  flex items-center justify-center gap-2"
                             >
                               <CheckSquare size={16} /> Done Editing
                             </button>
@@ -2810,7 +2912,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 </div>
                 {/* Progress bar */}
                 <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${((tourStep + 1) / TOUR_STEPS.length) * 100}%` }} />
+                  <div className="h-full bg-blue-500 rounded-full transition-colors duration-300" style={{ width: `${((tourStep + 1) / TOUR_STEPS.length) * 100}%` }} />
                 </div>
                 <h3 className="text-base font-bold text-gray-900">{step.title}</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>

@@ -5,164 +5,215 @@ export const FOUNDED_YEAR = 2019;
 
 // Array of video backgrounds for the Home carousel
 export const HERO_VIDEOS = [
-  "/18531410-uhd_3840_2160_60fps.mp4"
+  "/videos/18531410-uhd_3840_2160_60fps.mp4"
 ];
 
 export const ABOUT_TEXT = [
   "Founded on 9th September 2019 by Architect Sohan Suthar, Shapes & Shades is a full-service design and consulting firm rooted in thoughtful design, technical precision, and timeless aesthetics.",
-  "We specialize in architecture, interior design, and construction administration, offering truly end-to-end solutions from concept development and detailed design to execution support and on-site coordination. Every project is approached as a unique story, where form, function, and feeling come together seamlessly.",
-  "At Shapes & Shades, we believe great design is not just seen—it is experienced. Our process is collaborative, detail-driven, and client-centric, ensuring that each space reflects purpose, personality, and long-term value. Whether it’s a residence, commercial space, or large scale development, we balance creativity with practicality to deliver spaces that are elegant, efficient, and enduring.",
+  "We specialize in architecture, interior design, landscapes and construction administration, offering truly end-to-end solutions from concept development and detailed design to execution support and on-site coordination. Every project is approached as a unique story, where form, function, and feeling come together seamlessly.",
+  "At Shapes & Shades, we believe great design is not just seen it is experienced. Our process is collaborative, detail-driven, and client-centric, ensuring that each space reflects purpose, personality, and long-term value. Whether it’s a residence, commercial space, or large scale development, we balance creativity with practicality to deliver spaces that are elegant, efficient, and enduring.",
   "With a strong foundation in design excellence and construction understanding, we transform ideas into well-crafted realities shaping spaces, defining shades, and creating environments that inspire."
 ];
 
-// Project gallery images from real shoots (max 6 per project, no repeats)
-const GALLERY_MATUNGA = [
-  '/matunga/A1.jpg', '/matunga/A3.jpg', '/matunga/A4.jpg',
-  '/matunga/A6.jpg', '/matunga/b1.jpg', '/matunga/b2.jpg'
+// ─── REAL PROJECT GALLERIES (based on actual public folders) ───────────────────
+
+const GALLERY_VILLA = [
+  '/villa/SR1.jpg',
+  '/villa/SR1 (1).jpg',
+  '/villa/SR3.jpg',
+  '/villa/SR4.jpg',
 ];
 
-const GALLERY_JUHU = [
-  '/juhu/IMG_6998.JPG', '/juhu/IMG_6999.JPG', '/juhu/IMG_7001.JPG',
-  '/juhu/IMG_7005.JPG', '/juhu/IMG_7007.JPG', '/juhu/IMG_7010.JPG'
+const GALLERY_THANE = [
+  '/THANE/20250123_023548.jpg', '/THANE/20250123_023727.jpg', '/THANE/20250123_023740.jpg',
+  '/THANE/20250124_065335.jpg', '/THANE/20250124_065338.jpg', '/THANE/20250124_065349.jpg',
+  '/THANE/20250124_065404.jpg', '/THANE/20250124_065442.jpg', '/THANE/20250124_065444.jpg',
+  '/THANE/20250124_065447.jpg', '/THANE/20250124_065704.jpg', '/THANE/20250124_065709.jpg',
+  '/THANE/20250124_065716.jpg', '/THANE/20250125_025407.jpg', '/THANE/20250125_025410.jpg',
+  '/THANE/20250125_025413.jpg', '/THANE/20250125_032635.jpg', '/THANE/20250125_032641.jpg',
+  '/THANE/20250125_032657.jpg', '/THANE/20250125_033500.jpg', '/THANE/20250125_033505.jpg',
+  '/THANE/20250125_033925.jpg', '/THANE/20250125_033940.jpg', '/THANE/20250125_033951.jpg',
+  '/THANE/20250125_033955.jpg', '/THANE/20250125_034003.jpg', '/THANE/20250125_034647.jpg',
+  '/THANE/20250125_035401.jpg', '/THANE/20250125_035503.jpg', '/THANE/20250125_035508.jpg',
+  '/THANE/20250125_035511.jpg', '/THANE/20250125_035513.jpg', '/THANE/20250125_035518.jpg',
+];
+
+const GALLERY_THANE_DEV = [
+  '/THANE/20250123_023551.mp4', '/THANE/20250124_065302.mp4', '/THANE/20250124_065407.mp4',
+  '/THANE/20250125_025728.mp4', '/THANE/20250125_033843.mp4', '/THANE/20250125_033906.mp4',
+  '/THANE/20250125_034631.mp4',
+];
+
+const GALLERY_SHOP = [
+  '/SHOP/b3.jpg',
+  '/SHOP/b5.jpg',
+  '/SHOP/b8.jpg',
+  '/SHOP/t11.jpg',
+];
+
+const GALLERY_MILIND_MODI = [
+  '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.04.59 AM.jpeg',
+  '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.05.00 AM.jpeg',
+  '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.05.00 AM (1).jpeg',
+  '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.05.00 AM (2).jpeg',
+  '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.05.00 AM (3).jpeg',
+  '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.05.01 AM.jpeg',
+  '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.05.01 AM (1).jpeg',
+  '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.05.01 AM (2).jpeg',
+];
+
+const GALLERY_MATUNGA = [
+  '/matunga/IMG_7696.JPG', '/matunga/IMG_7699.JPG', '/matunga/IMG_7701.JPG',
+  '/matunga/IMG_7702.JPG', '/matunga/IMG_7706.JPG', '/matunga/IMG_7708.JPG',
+  '/matunga/IMG_7709.JPG', '/matunga/IMG_7714.JPG', '/matunga/IMG_7715.JPG',
+  '/matunga/IMG_7719.JPG', '/matunga/IMG_7722.JPG', '/matunga/IMG_7726.JPG',
+  '/matunga/IMG_7728.JPG', '/matunga/IMG_7729.JPG', '/matunga/IMG_7733.JPG',
+  '/matunga/IMG_7734.JPG', '/matunga/IMG_7737.JPG', '/matunga/IMG_7738.JPG',
+  '/matunga/IMG_7739.JPG', '/matunga/IMG_7740.JPG', '/matunga/IMG_7747.JPG',
+  '/matunga/IMG_7768.JPG', '/matunga/IMG_7779.JPG', '/matunga/IMG_7784.JPG',
+];
+
+const GALLERY_LOTUS = [
+  '/LOTUS/20241022_133701.jpg', '/LOTUS/20241120_135801.jpg', '/LOTUS/20241120_140131.jpg',
+  '/LOTUS/20241120_170936.jpg', '/LOTUS/20241120_171731.jpg', '/LOTUS/20241120_171748.jpg',
+  '/LOTUS/20241120_171800.jpg', '/LOTUS/20241120_171822.jpg', '/LOTUS/20241120_171831.jpg',
+  '/LOTUS/20241120_172015.jpg', '/LOTUS/20241120_172135.jpg',
 ];
 
 const GALLERY_BANDRA = [
-  '/bandra/IMG_7699.JPG', '/bandra/IMG_7701.JPG', '/bandra/IMG_7706.JPG',
-  '/bandra/IMG_7709.JPG', '/bandra/IMG_7715.JPG', '/bandra/IMG_7722.JPG'
+  '/bandra/IMG_6992.JPG', '/bandra/IMG_7001.JPG', '/bandra/IMG_7002.JPG',
+  '/bandra/IMG_7005.JPG', '/bandra/IMG_7007.JPG', '/bandra/IMG_7008.JPG',
+  '/bandra/IMG_7010.JPG', '/bandra/IMG_7014.JPG', '/bandra/IMG_7015.JPG',
+  '/bandra/IMG_7020.JPG', '/bandra/IMG_7028.JPG', '/bandra/IMG_7032.JPG',
+  '/bandra/IMG_7034.JPG', '/bandra/IMG_7049.JPG', '/bandra/IMG_7050.JPG',
+];
+
+const GALLERY_ASHRAY = [
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.30 PM (1).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.30 PM.jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.31 PM (1).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.31 PM (2).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.31 PM (3).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.31 PM.jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.32 PM (1).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.32 PM (2).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.32 PM.jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.33 PM (1).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.33 PM (2).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.33 PM (3).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.33 PM.jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.34 PM (1).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.34 PM (2).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.34 PM (3).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.34 PM.jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.35 PM (1).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.35 PM (2).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.35 PM.jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.36 PM (1).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.36 PM (2).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.36 PM.jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.37 PM (1).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.37 PM (2).jpeg',
+  '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.37 PM.jpeg',
 ];
 
 export const PROJECTS: Project[] = [
-  // --- ARCHITECTURE (3 projects) ---
   {
     id: '1',
-    title: 'JUHU VILLA',
+    title: 'VILLA',
     location: 'Mumbai',
-    category: 'Villas',
+    category: 'Residential',
     type: 'ARCHITECTURE',
     subCategory: 'RESIDENTIAL',
-    imageUrl: '/juhu/IMG_6992.JPG',
-    galleries: {
-      finished: GALLERY_JUHU,
-      development: []
-    },
-    published: true
+    imageUrl: '/villa/SR1.jpg',
+    galleries: { finished: GALLERY_VILLA, development: [] },
+    published: true,
+    displayOrder: 1,
   },
   {
     id: '2',
-    title: 'JREDDY VILLA',
-    location: 'Hyderabad',
-    category: 'Villas',
-    type: 'ARCHITECTURE',
+    title: 'THANE',
+    location: 'Thane',
+    category: 'Residential',
+    type: 'INTERIOR DESIGN',
     subCategory: 'RESIDENTIAL',
-    imageUrl: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1600&q=80&auto=format&fit=crop',
-    galleries: {
-      finished: ['/matunga/GH2.jpg', '/matunga/GH6.jpg', '/matunga/GH7.jpg', '/matunga/GH20.jpg', '/matunga/GH22.jpg', '/matunga/GH26.jpg'],
-      development: []
-    },
-    published: true
+    imageUrl: '/THANE/20250123_023548.jpg',
+    galleries: { finished: GALLERY_THANE, development: GALLERY_THANE_DEV },
+    published: true,
+    displayOrder: 2,
   },
   {
     id: '3',
-    title: 'ZENITH CLUB HOUSE',
-    location: 'Pune',
-    category: 'Club Houses',
-    type: 'ARCHITECTURE',
-    subCategory: 'HOSPITALITY',
-    imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1600&q=80&auto=format&fit=crop',
-    galleries: {
-      finished: ['/matunga/SR1.jpg', '/matunga/SR3.jpg', '/matunga/SR4.jpg', '/matunga/DT1.jpg', '/matunga/tb1.jpg', '/matunga/tb2.jpg'],
-      development: []
-    },
-    published: true
+    title: 'SHOP',
+    location: 'Mumbai',
+    category: 'Commercial',
+    type: 'INTERIOR DESIGN',
+    subCategory: 'COMMERCIAL',
+    imageUrl: '/SHOP/b3.jpg',
+    galleries: { finished: GALLERY_SHOP, development: [] },
+    published: true,
+    displayOrder: 3,
   },
-
-  // --- INTERIOR DESIGN (3 projects) ---
   {
     id: '4',
-    title: 'MATUNGA RESIDENCE',
-    location: 'Mumbai',
-    category: 'Luxe Interiors',
+    title: 'MILIND MODI GHATKOPAR',
+    location: 'Ghatkopar',
+    category: 'Residential',
     type: 'INTERIOR DESIGN',
     subCategory: 'RESIDENTIAL',
-    imageUrl: '/matunga/LR3.jpg',
-    galleries: {
-      finished: GALLERY_MATUNGA,
-      development: []
-    },
-    published: true
+    imageUrl: '/Milind Modi ghatkopar/WhatsApp Image 2026-02-19 at 9.04.59 AM.jpeg',
+    galleries: { finished: GALLERY_MILIND_MODI, development: [] },
+    published: true,
+    displayOrder: 4,
   },
   {
     id: '5',
-    title: 'BANDRA PENTHOUSE',
+    title: 'MATUNGA',
     location: 'Mumbai',
-    category: 'Luxe Interiors',
+    category: 'Residential',
     type: 'INTERIOR DESIGN',
     subCategory: 'RESIDENTIAL',
-    imageUrl: '/bandra/IMG_7696.JPG',
-    galleries: {
-      finished: GALLERY_BANDRA,
-      development: []
-    },
-    published: true
+    imageUrl: '/matunga/IMG_7696.JPG',
+    galleries: { finished: GALLERY_MATUNGA, development: [] },
+    published: true,
+    displayOrder: 5,
   },
   {
     id: '6',
-    title: 'AURORA WORKSPACE',
-    location: 'Bangalore',
-    category: 'Workspaces',
+    title: 'LOTUS',
+    location: 'Mumbai',
+    category: 'Residential',
     type: 'INTERIOR DESIGN',
-    subCategory: 'COMMERCIAL',
-    imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80&auto=format&fit=crop',
-    galleries: {
-      finished: ['/matunga/NO1.jpg', '/matunga/NO6.jpg', '/matunga/NO9.jpg', '/matunga/NO20.jpg', '/matunga/c1.jpg', '/matunga/C13.jpg'],
-      development: []
-    },
-    published: true
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/LOTUS/20241120_135801.jpg',
+    galleries: { finished: GALLERY_LOTUS, development: [] },
+    published: true,
+    displayOrder: 6,
   },
-
-  // --- LANDSCAPE (3 projects) ---
   {
     id: '7',
-    title: 'CENTRAL PARK GARDENS',
-    location: 'Delhi',
-    category: 'Urban Gardens',
-    type: 'LANDSCAPE',
-    subCategory: 'COMMERCIAL',
-    imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&q=80&auto=format&fit=crop',
-    galleries: {
-      finished: ['/matunga/s1.jpg', '/matunga/s3.jpg', '/matunga/S4.jpg', '/matunga/s5.jpg', '/matunga/S7.jpg', '/matunga/S8.jpg'],
-      development: []
-    },
-    published: true
+    title: 'BANDRA',
+    location: 'Mumbai',
+    category: 'Residential',
+    type: 'INTERIOR DESIGN',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/bandra/IMG_6992.JPG',
+    galleries: { finished: GALLERY_BANDRA, development: [] },
+    published: true,
+    displayOrder: 7,
   },
   {
     id: '8',
-    title: 'LOTUS COURTYARD',
-    location: 'Jaipur',
-    category: 'Residential Landscape',
-    type: 'LANDSCAPE',
+    title: 'ASHRAY KANDIIVALI WEST',
+    location: 'Kandivali West',
+    category: 'Residential',
+    type: 'INTERIOR DESIGN',
     subCategory: 'RESIDENTIAL',
-    imageUrl: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=1600&q=80&auto=format&fit=crop',
-    galleries: {
-      finished: ['/matunga/BV1.jpg', '/matunga/bv3.jpg', '/matunga/bv4.jpg', '/matunga/bv10.jpg', '/matunga/bv14.jpg', '/matunga/bv16.jpg'],
-      development: []
-    },
-    published: true
+    imageUrl: '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.30 PM.jpeg',
+    galleries: { finished: GALLERY_ASHRAY, development: [] },
+    published: true,
+    displayOrder: 8,
   },
-  {
-    id: '9',
-    title: 'ROOFTOP OASIS',
-    location: 'Mumbai',
-    category: 'Rooftop Gardens',
-    type: 'LANDSCAPE',
-    subCategory: 'HOSPITALITY',
-    imageUrl: 'https://images.unsplash.com/photo-1591825729269-caeb344f6df2?w=1600&q=80&auto=format&fit=crop',
-    galleries: {
-      finished: ['/matunga/GHF3.jpg', '/matunga/GHF5.jpg', '/matunga/GHF18.jpg', '/matunga/GHF21.jpg', '/matunga/T5.jpg', '/matunga/t11.jpg'],
-      development: []
-    },
-    published: true
-  }
 ];
 
 export const HERO_SLIDES = [

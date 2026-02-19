@@ -44,7 +44,8 @@ const HEADER_QUOTES = [
 
 // Fallback image in case Unsplash links expire or fail
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000';
-const DEV_STORAGE_KEY = 'shapes_shades_dev_projects_v2';
+export const DEV_STORAGE_KEY = 'shapes_shades_dev_projects_v4';
+const DEV_STORAGE_PREFIX = 'shapes_shades_dev_projects_';
 
 const sortProjects = (entries: Project[]): Project[] => {
   return [...entries].sort((a, b) => {
@@ -64,37 +65,57 @@ const normalizeProjects = (entries: Project[]): Project[] => {
   return entries.map(normalizeProject);
 };
 
-const ensureDefaultProjects = (entries: Project[]): Project[] => {
-  const map = new Map(entries.map((project) => [project.id, normalizeProject(project)]));
-  PROJECTS.forEach((defaultProject) => {
-    if (!map.has(defaultProject.id)) {
-      map.set(defaultProject.id, normalizeProject({ ...defaultProject, archived: false }));
+// Purge all old versioned keys so stale projects never resurface
+const purgeOldProjectKeys = (): void => {
+  if (typeof window === 'undefined') return;
+  const toDelete: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const key = window.localStorage.key(i);
+    if (key && key.startsWith(DEV_STORAGE_PREFIX) && key !== DEV_STORAGE_KEY) {
+      toDelete.push(key);
     }
+  }
+  toDelete.forEach((k) => {
+    window.localStorage.removeItem(k);
+    console.log(`[Projects] Purged stale cache key: ${k}`);
   });
-  return sortProjects([...map.values()]);
+};
+
+const seedFreshProjects = (): Project[] => {
+  const seeded = sortProjects(normalizeProjects(PROJECTS));
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(seeded));
+  }
+  return seeded;
 };
 
 const readDevProjects = (): Project[] => {
-  if (typeof window === 'undefined') return PROJECTS;
+  if (typeof window === 'undefined') return sortProjects(normalizeProjects(PROJECTS));
+  purgeOldProjectKeys();
   const raw = window.localStorage.getItem(DEV_STORAGE_KEY);
-  if (!raw) {
-    const seeded = ensureDefaultProjects(normalizeProjects(PROJECTS));
-    window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
-  }
+  if (!raw) return seedFreshProjects();
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      const seeded = ensureDefaultProjects(normalizeProjects(PROJECTS));
-      window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(seeded));
-      return seeded;
-    }
-    return ensureDefaultProjects(normalizeProjects(parsed as Project[]));
+    if (!Array.isArray(parsed) || parsed.length === 0) return seedFreshProjects();
+
+    const canonicalIds = new Set(PROJECTS.map((p) => p.id));
+    const baseMap = new Map<string, Project>(normalizeProjects(PROJECTS).map((p) => [p.id, p]));
+    const additions: Project[] = [];
+
+    (parsed as Project[]).forEach((p) => {
+      if (canonicalIds.has(p.id)) {
+        // Merge cached edits into the canonical base
+        const base = baseMap.get(p.id)!;
+        baseMap.set(p.id, { ...base, ...p });
+      } else {
+        additions.push(normalizeProject(p));
+      }
+    });
+
+    return sortProjects([...baseMap.values(), ...additions]);
   } catch (err) {
     console.warn('[Projects] Failed to parse local dev projects, resetting store', err);
-    const seeded = ensureDefaultProjects(normalizeProjects(PROJECTS));
-    window.localStorage.setItem(DEV_STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
+    return seedFreshProjects();
   }
 };
 
@@ -104,8 +125,42 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [quoteFading, setQuoteFading] = useState(false);
-  const [projects, setProjects] = useState<Project[]>(ensureDefaultProjects(normalizeProjects(PROJECTS)));
+  const [detailTab, setDetailTab] = useState<'finished' | 'development'>('finished');
+  const [projects, setProjects] = useState<Project[]>(sortProjects(normalizeProjects(PROJECTS)));
   const devBypass = !isFirebaseConfigured || import.meta.env.VITE_DEV_ADMIN_BYPASS === 'true';
+
+  // --- AUTO-FIX FOR MATUNGA (ID 5) ---
+  useEffect(() => {
+    if (projects.length === 0) return;
+
+    const healMatunga = async () => {
+      const matunga = projects.find(p => p.id === '5');
+      const canonical = PROJECTS.find(p => p.id === '5');
+
+      if (matunga && canonical) {
+        // Auto-Restore: If database version is suspiciously small (<5 images) but canonical has many (>10)
+        if (matunga.galleries.finished.length < 5 && canonical.galleries.finished.length > 10) {
+          console.warn('[AutoHeal] Project 5 (Matunga) seems broken in DB. Restoring canonical images...');
+          if (!devBypass && isFirebaseConfigured) {
+            try {
+              const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+              const { db } = await import('../src/firebase');
+              await setDoc(doc(db, 'projects', '5'), {
+                galleries: canonical.galleries,
+                imageUrl: canonical.imageUrl,
+                updatedAt: serverTimestamp(),
+                isDeleted: false
+              }, { merge: true });
+              console.log('[AutoHeal] Matunga restored successfully.');
+            } catch (err) {
+              console.error('[AutoHeal] Failed execution:', err);
+            }
+          }
+        }
+      }
+    };
+    healMatunga();
+  }, [projects, devBypass]);
 
   // Firestore listener merges cloud projects with defaults
   useEffect(() => {
@@ -133,59 +188,47 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     const projectQuery = query(colRef, orderBy('displayOrder', 'asc'));
 
     const unsub = onSnapshot(projectQuery, (snap) => {
-      if (snap.empty) {
-        const empty = ensureDefaultProjects(normalizeProjects(PROJECTS));
-        setProjects(sortProjects(empty.filter((p) => !p.archived)));
-        return;
+      const canonicalIds = new Set(PROJECTS.map((p) => p.id));
+      const baseMap = new Map(PROJECTS.map((p) => [p.id, normalizeProject(p)]));
+
+      if (!snap.empty) {
+        snap.forEach((docSnap) => {
+          // Block any doc that isn't a canonical project (prevents Pune/Delhi reappear)
+          if (!canonicalIds.has(docSnap.id)) return;
+
+          const data = docSnap.data();
+
+          if (data.isDeleted) {
+            baseMap.delete(docSnap.id);
+            return;
+          }
+
+          const base = baseMap.get(docSnap.id);
+
+          // Use Firestore data if present, otherwise fallback to constants.ts
+          const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
+          const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
+
+          baseMap.set(docSnap.id, {
+            id: docSnap.id,
+            title: data.title ?? base?.title ?? 'Untitled Project',
+            location: data.location ?? base?.location ?? 'Mumbai',
+            category: data.category ?? base?.category ?? 'Projects',
+            type: data.type ?? base?.type ?? 'ARCHITECTURE',
+            subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
+            imageUrl: data.imageUrl ?? base?.imageUrl ?? (finished[0] || ''),
+            galleries: { finished, development },
+            published: data.published ?? base?.published ?? false,
+            description: data.description ?? base?.description,
+            displayOrder: data.displayOrder ?? base?.displayOrder,
+            createdAt: data.createdAt ?? base?.createdAt,
+            updatedAt: data.updatedAt ?? base?.updatedAt,
+          });
+        });
       }
 
-      const baseMap = new Map(PROJECTS.map((p) => [p.id, p]));
-      const additions: Project[] = [];
-
-      snap.forEach((docSnap) => {
-        const data = docSnap.data();
-        const base = baseMap.get(docSnap.id);
-
-        if (data.isDeleted) {
-          baseMap.delete(docSnap.id);
-          return;
-        }
-
-        const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : base?.galleries.finished ?? [];
-        const development = Array.isArray(data.galleries?.development) ? data.galleries.development : base?.galleries.development ?? [];
-
-        const coverImage = typeof data.imageUrl === 'string' && data.imageUrl.trim().length > 0
-          ? data.imageUrl
-          : base?.imageUrl ?? finished[0] ?? development[0] ?? FALLBACK_IMAGE;
-
-        const merged: Project = {
-          id: docSnap.id,
-          title: data.title ?? base?.title ?? 'Untitled Project',
-          location: data.location ?? base?.location ?? 'Location coming soon',
-          category: data.category ?? base?.category ?? 'Projects',
-          type: data.type ?? base?.type ?? 'ARCHITECTURE',
-          subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-          imageUrl: coverImage,
-          galleries: {
-            finished,
-            development
-          },
-          published: data.published ?? base?.published ?? false,
-          description: data.description ?? base?.description,
-          displayOrder: data.displayOrder ?? base?.displayOrder,
-          createdAt: data.createdAt ?? base?.createdAt,
-          updatedAt: data.updatedAt ?? base?.updatedAt
-        };
-
-        if (base) {
-          baseMap.set(docSnap.id, merged);
-        } else {
-          additions.push(merged);
-        }
-      });
-
-      const mergedProjects = [...baseMap.values(), ...additions];
-      setProjects(sortProjects(mergedProjects));
+      const mergedProjects = sortProjects([...baseMap.values()]);
+      setProjects(mergedProjects.filter((p) => !p.archived));
     });
 
     return unsub;
@@ -203,15 +246,48 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // When selectedProject changes, update the dark mode state
+  // Browser History & Back Button Logic
+  useEffect(() => {
+    // 1. Handle Browser Back Button (PopState)
+    const handlePopState = (event: PopStateEvent) => {
+      // If user hits Back and we are in a project, close it
+      if (selectedProject) {
+        setSelectedProject(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [selectedProject]);
+
+  // When selectedProject changes, update state and URL
   useEffect(() => {
     if (selectedProject) {
       console.log(`[Projects] Opening detail view for: ${selectedProject.title}`);
       setIsDarkMode(true);
+      setDetailTab('finished');
       window.scrollTo(0, 0);
+
+      // Push history state so Mobile Back Button works
+      // Only push if we aren't already there (to avoid loops)
+      const currentUrl = new URL(window.location.href);
+      if (!currentUrl.searchParams.has('project')) {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('project', selectedProject.id);
+        window.history.pushState({ projectId: selectedProject.id }, '', newUrl.toString());
+      }
     } else {
       console.log('[Projects] Returning to grid view');
       setIsDarkMode(false);
+
+      // If we closed the project manually (by button), clear the URL history gently
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.searchParams.has('project')) {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('project');
+        // Replace state so we don't accumulate junk history
+        window.history.replaceState({}, '', newUrl.toString());
+      }
     }
     // Cleanup on unmount or change
     return () => setIsDarkMode(false);
@@ -279,185 +355,229 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   // --- DETAIL VIEW ---
   if (selectedProject) {
     return (
-      <div className="w-full min-h-screen bg-white animate-fade-in">
-
-        {/* Project Hero Section - Dark Background */}
-        <div className="w-full h-screen bg-black flex flex-col justify-center items-center text-white relative px-6">
-
-          {/* Back to Projects - sits over the hero, below the fixed header */}
-          <div className="absolute top-0 left-0 w-full px-6 md:px-12 lg:px-24 pt-28 md:pt-36">
+      <>
+        {/* Back to Projects - Robust Floating Sticky Pivot (Outside animated container) - DESKTOP ONLY */}
+        <div className="hidden md:block fixed inset-0 pointer-events-none z-[999]">
+          <div className="absolute top-32 left-6 md:left-12 lg:left-24 pointer-events-auto">
             <button
               onClick={() => setSelectedProject(null)}
-              className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-white/50 hover:text-white transition-colors"
+              className="group flex items-center gap-3 text-xs font-bold tracking-[0.2em] uppercase text-white bg-black/40 backdrop-blur-md hover:bg-black/70 transition-all duration-300 px-6 py-3 rounded-full border border-white/20 hover:border-white/50 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
             >
-              <ArrowLeft size={14} />
+              <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+              <span>Back</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="w-full min-h-screen bg-white animate-fade-in relative z-10">
+          {/* Project Hero Section - Dark Background */}
+          <div className="w-full h-screen bg-black flex flex-col justify-center items-center text-white relative px-6">
+
+            {/* Back Button - MOBILE ONLY (Scrolling) */}
+            <div className="absolute top-40 left-6 block md:hidden z-50">
+              <button
+                onClick={() => setSelectedProject(null)}
+                className="flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase text-white/80 hover:text-white border border-white/20 px-4 py-2 rounded-full bg-black/20 backdrop-blur-sm"
+              >
+                <ArrowLeft size={14} />
+                <span>Back</span>
+              </button>
+            </div>
+
+            <div className="text-center space-y-6 animate-fade-in-up">
+              <h1 className="text-5xl md:text-7xl lg:text-9xl font-sans font-bold tracking-tight">
+                {selectedProject.title}
+              </h1>
+              <p className="text-lg md:text-2xl font-light tracking-widest uppercase opacity-80">
+                {selectedProject.location}
+              </p>
+            </div>
+
+            {/* Scroll Indicator */}
+            <div className="absolute bottom-10 animate-bounce opacity-50">
+              <div className="w-0.5 h-12 bg-white mx-auto"></div>
+            </div>
+          </div>
+
+          {/* Gallery Section */}
+          <div className="w-full bg-white py-24 px-6 md:px-12 lg:px-24">
+            <div className="max-w-7xl mx-auto space-y-12 md:space-y-24">
+              {/* Project Brief */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
+                <div className="md:col-span-4">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Project Brief</h3>
+                  <p className="text-2xl font-serif-display text-black">A thoughtful exploration of space and light.</p>
+                </div>
+                <div className="md:col-span-8">
+                  <p className="text-gray-600 leading-relaxed text-lg">
+                    {selectedProject.description ?? 'This project represents a dialogue between modern aesthetics and functional living. Every corner is designed to maximize natural light and air flow, creating a sanctuary within the urban environment.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Gallery Tabs Selector - Only show if both galleries have content */}
+              {selectedProject.galleries.finished.length > 0 && selectedProject.galleries.development.length > 0 && (
+                <div className="flex justify-center border-b border-gray-100 mb-12 md:mb-24">
+                  <button
+                    onClick={() => {
+                      setDetailTab('finished');
+                      // Optional: scroll back to top of gallery section
+                    }}
+                    className={`pb-4 px-4 md:px-8 text-[10px] md:text-xs font-bold tracking-[0.3em] uppercase transition-all duration-300 relative ${detailTab === 'finished' ? 'text-black' : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                  >
+                    Finished Spaces
+                    {detailTab === 'finished' && (
+                      <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black animate-scale-x" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDetailTab('development');
+                    }}
+                    className={`pb-4 px-4 md:px-8 text-[10px] md:text-xs font-bold tracking-[0.3em] uppercase transition-all duration-300 relative ${detailTab === 'development' ? 'text-black' : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                  >
+                    On-Site Progress
+                    {detailTab === 'development' && (
+                      <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black animate-scale-x" />
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Gallery Content */}
+              {(detailTab === 'finished' || selectedProject.galleries.development.length === 0) && selectedProject.galleries.finished.length > 0 && (
+                <section className="space-y-6 md:space-y-12 animate-fade-in">
+                  <header className="flex items-baseline justify-between">
+                    <h4 className="text-lg md:text-2xl font-semibold tracking-wide uppercase text-gray-900">Finished Spaces</h4>
+                    <span className="text-xs uppercase tracking-[0.3em] text-gray-400">{selectedProject.galleries.finished.length} IMAGES</span>
+                  </header>
+                  {selectedProject.galleries.finished.map((url, idx) => {
+                    // 1. Google Drive Embed
+                    if (url.includes('drive.google.com')) {
+                      const embed = url.replace(/\/view.*/, '/preview');
+                      return (
+                        <div key={`finished-${idx}`} className="w-full aspect-video bg-gray-50 rounded-lg overflow-hidden relative">
+                          <iframe src={embed} className="absolute inset-0 w-full h-full" allowFullScreen title="Project Video" />
+                        </div>
+                      );
+                    }
+                    // 2. YouTube Embed
+                    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                      const videoId = url.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/)?.[1];
+                      if (videoId) {
+                        return (
+                          <div key={`finished-${idx}`} className="w-full aspect-video bg-gray-50 rounded-lg overflow-hidden relative">
+                            <iframe
+                              src={`https://www.youtube.com/embed/${videoId}`}
+                              className="absolute inset-0 w-full h-full"
+                              allowFullScreen
+                              title="Project Video"
+                            />
+                          </div>
+                        );
+                      }
+                    }
+                    // 3. Pexels / Direct Video
+                    if (/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(url) || url.includes('pexels.com/video')) {
+                      return (
+                        <div key={`finished-${idx}`} className="w-full bg-black rounded-lg overflow-hidden">
+                          <video controls className="w-full h-auto max-h-[90vh]" preload="metadata">
+                            <source src={url} />
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      );
+                    }
+                    // 4. Default Image
+                    return (
+                      <div key={`finished-${idx}`} className="w-full">
+                        <img
+                          src={url}
+                          onError={handleImageError}
+                          alt={`${selectedProject.title} finished ${idx + 1}`}
+                          className="w-full h-auto object-cover max-h-[90vh]"
+                        />
+                      </div>
+                    );
+                  })}
+                </section>
+              )}
+
+              {(detailTab === 'development' || selectedProject.galleries.finished.length === 0) && selectedProject.galleries.development.length > 0 && (
+                <section className="space-y-6 md:space-y-12 animate-fade-in">
+                  <header className="flex items-baseline justify-between">
+                    <h4 className="text-lg md:text-2xl font-semibold tracking-wide uppercase text-gray-900">On-Site Progress</h4>
+                    <span className="text-xs uppercase tracking-[0.3em] text-gray-400">{selectedProject.galleries.development.length} IMAGES</span>
+                  </header>
+                  {selectedProject.galleries.development.map((url, idx) => {
+                    // 1. Google Drive Embed
+                    if (url.includes('drive.google.com')) {
+                      const embed = url.replace(/\/view.*/, '/preview');
+                      return (
+                        <div key={`development-${idx}`} className="w-full aspect-video bg-gray-50 rounded-lg overflow-hidden relative">
+                          <iframe src={embed} className="absolute inset-0 w-full h-full" allowFullScreen title="Project Video" />
+                        </div>
+                      );
+                    }
+                    // 2. YouTube Embed
+                    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                      const videoId = url.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/)?.[1];
+                      if (videoId) {
+                        return (
+                          <div key={`development-${idx}`} className="w-full aspect-video bg-gray-50 rounded-lg overflow-hidden relative">
+                            <iframe
+                              src={`https://www.youtube.com/embed/${videoId}`}
+                              className="absolute inset-0 w-full h-full"
+                              allowFullScreen
+                              title="Project Video"
+                            />
+                          </div>
+                        );
+                      }
+                    }
+                    // 3. Pexels / Direct Video
+                    if (/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(url) || url.includes('pexels.com/video')) {
+                      return (
+                        <div key={`development-${idx}`} className="w-full bg-black rounded-lg overflow-hidden">
+                          <video controls className="w-full h-auto max-h-[90vh]" preload="metadata">
+                            <source src={url} />
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      );
+                    }
+                    // 4. Default Image
+                    return (
+                      <div key={`development-${idx}`} className="w-full">
+                        <img
+                          src={url}
+                          onError={handleImageError}
+                          alt={`${selectedProject.title} progress ${idx + 1}`}
+                          className="w-full h-auto object-cover max-h-[90vh]"
+                        />
+                      </div>
+                    );
+                  })}
+                </section>
+              )}
+            </div>
+          </div>
+
+          {/* Back to Projects - Bottom */}
+          <div className="w-full px-6 md:px-12 lg:px-24 py-20 flex justify-center">
+            <button
+              onClick={() => setSelectedProject(null)}
+              className="flex items-center gap-3 text-sm font-bold tracking-widest uppercase border border-black px-8 py-4 hover:bg-black hover:text-white transition-all duration-300"
+            >
+              <ArrowLeft size={16} />
               <span>Back to Projects</span>
             </button>
           </div>
 
-          <div className="text-center space-y-6 animate-fade-in-up">
-            <h1 className="text-5xl md:text-7xl lg:text-9xl font-sans font-bold tracking-tight">
-              {selectedProject.title}
-            </h1>
-            <p className="text-lg md:text-2xl font-light tracking-widest uppercase opacity-80">
-              {selectedProject.location}
-            </p>
-          </div>
-
-          {/* Scroll Indicator */}
-          <div className="absolute bottom-10 animate-bounce opacity-50">
-            <div className="w-0.5 h-12 bg-white mx-auto"></div>
-          </div>
         </div>
-
-        {/* Gallery Section */}
-        <div className="w-full bg-white py-24 px-6 md:px-12 lg:px-24">
-          <div className="max-w-7xl mx-auto space-y-12 md:space-y-24">
-            {/* Project Brief */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
-              <div className="md:col-span-4">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Project Brief</h3>
-                <p className="text-2xl font-serif-display text-black">A thoughtful exploration of space and light.</p>
-              </div>
-              <div className="md:col-span-8">
-                <p className="text-gray-600 leading-relaxed text-lg">
-                  {selectedProject.description ?? 'This project represents a dialogue between modern aesthetics and functional living. Every corner is designed to maximize natural light and air flow, creating a sanctuary within the urban environment.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Finished Gallery */}
-            {selectedProject.galleries.finished.length > 0 && (
-              <section className="space-y-6 md:space-y-12">
-                <header className="flex items-baseline justify-between">
-                  <h4 className="text-lg md:text-2xl font-semibold tracking-wide uppercase text-gray-900">Finished Spaces</h4>
-                  <span className="text-xs uppercase tracking-[0.3em] text-gray-400">{selectedProject.galleries.finished.length} IMAGES</span>
-                </header>
-                {selectedProject.galleries.finished.map((url, idx) => {
-                  // 1. Google Drive Embed
-                  if (url.includes('drive.google.com')) {
-                    const embed = url.replace(/\/view.*/, '/preview');
-                    return (
-                      <div key={`finished-${idx}`} className="w-full aspect-video bg-gray-50 rounded-lg overflow-hidden relative">
-                        <iframe src={embed} className="absolute inset-0 w-full h-full" allowFullScreen title="Project Video" />
-                      </div>
-                    );
-                  }
-                  // 2. YouTube Embed
-                  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                    const videoId = url.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/)?.[1];
-                    if (videoId) {
-                      return (
-                        <div key={`finished-${idx}`} className="w-full aspect-video bg-gray-50 rounded-lg overflow-hidden relative">
-                          <iframe
-                            src={`https://www.youtube.com/embed/${videoId}`}
-                            className="absolute inset-0 w-full h-full"
-                            allowFullScreen
-                            title="Project Video"
-                          />
-                        </div>
-                      );
-                    }
-                  }
-                  // 3. Pexels / Direct Video
-                  if (/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(url) || url.includes('pexels.com/video')) {
-                    return (
-                      <div key={`finished-${idx}`} className="w-full bg-black rounded-lg overflow-hidden">
-                        <video controls className="w-full h-auto max-h-[90vh]" preload="metadata">
-                          <source src={url} />
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-                    );
-                  }
-                  // 4. Default Image
-                  return (
-                    <div key={`finished-${idx}`} className="w-full">
-                      <img
-                        src={url}
-                        onError={handleImageError}
-                        alt={`${selectedProject.title} finished ${idx + 1}`}
-                        className="w-full h-auto object-cover max-h-[90vh]"
-                      />
-                    </div>
-                  );
-                })}
-              </section>
-            )}
-
-            {/* Development Gallery */}
-            {selectedProject.galleries.development.length > 0 && (
-              <section className="space-y-6 md:space-y-12">
-                <header className="flex items-baseline justify-between">
-                  <h4 className="text-lg md:text-2xl font-semibold tracking-wide uppercase text-gray-900">On-Site Progress</h4>
-                  <span className="text-xs uppercase tracking-[0.3em] text-gray-400">{selectedProject.galleries.development.length} IMAGES</span>
-                </header>
-                {selectedProject.galleries.development.map((url, idx) => {
-                  // 1. Google Drive Embed
-                  if (url.includes('drive.google.com')) {
-                    const embed = url.replace(/\/view.*/, '/preview');
-                    return (
-                      <div key={`development-${idx}`} className="w-full aspect-video bg-gray-50 rounded-lg overflow-hidden relative">
-                        <iframe src={embed} className="absolute inset-0 w-full h-full" allowFullScreen title="Project Video" />
-                      </div>
-                    );
-                  }
-                  // 2. YouTube Embed
-                  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                    const videoId = url.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/)?.[1];
-                    if (videoId) {
-                      return (
-                        <div key={`development-${idx}`} className="w-full aspect-video bg-gray-50 rounded-lg overflow-hidden relative">
-                          <iframe
-                            src={`https://www.youtube.com/embed/${videoId}`}
-                            className="absolute inset-0 w-full h-full"
-                            allowFullScreen
-                            title="Project Video"
-                          />
-                        </div>
-                      );
-                    }
-                  }
-                  // 3. Pexels / Direct Video
-                  if (/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(url) || url.includes('pexels.com/video')) {
-                    return (
-                      <div key={`development-${idx}`} className="w-full bg-black rounded-lg overflow-hidden">
-                        <video controls className="w-full h-auto max-h-[90vh]" preload="metadata">
-                          <source src={url} />
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-                    );
-                  }
-                  // 4. Default Image
-                  return (
-                    <div key={`development-${idx}`} className="w-full">
-                      <img
-                        src={url}
-                        onError={handleImageError}
-                        alt={`${selectedProject.title} progress ${idx + 1}`}
-                        className="w-full h-auto object-cover max-h-[90vh]"
-                      />
-                    </div>
-                  );
-                })}
-              </section>
-            )}
-          </div>
-        </div>
-
-        {/* Back to Projects - Bottom */}
-        <div className="w-full px-6 md:px-12 lg:px-24 py-20 flex justify-center">
-          <button
-            onClick={() => setSelectedProject(null)}
-            className="flex items-center gap-3 text-sm font-bold tracking-widest uppercase border border-black px-8 py-4 hover:bg-black hover:text-white transition-all duration-300"
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Projects</span>
-          </button>
-        </div>
-
-      </div>
+      </>
     );
   }
 
@@ -505,7 +625,14 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                     } transition-all duration-500 text-left`}
                 >
                   <div className="absolute inset-0">
-                    <img src={card.image} alt={card.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    <img
+                      src={card.image}
+                      alt={card.label}
+                      onError={(e) => {
+                        e.currentTarget.src = FALLBACK_IMAGE; // Use universal fallback
+                      }}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                   </div>
                   <div className="relative z-10 p-6 flex flex-col gap-2 text-white">
@@ -564,4 +691,15 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   );
 };
 
+
 export default Projects;
+
+// -- TEMP FIXER
+// Uncomment to run locally once if needed, then re-comment.
+// import { doc, setDoc } from 'firebase/firestore';
+// export const MatungaFixer = () => {
+//  useEffect(() => {
+//    // ...
+//  }, []);
+//  return <button>Reset Matunga</button>;
+// }

@@ -11,6 +11,34 @@ HERO_SLIDES.forEach(slide => {
   preloadedImages.push(img);
 });
 
+const VideoSlide: React.FC<{ url: string; onVideoError: () => void }> = ({ url, onVideoError }) => {
+  const [isReady, setIsReady] = useState(false);
+
+  return (
+    <>
+      <video
+        key={url}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        onCanPlay={() => setIsReady(true)}
+        onError={onVideoError}
+        className={`absolute min-w-full min-h-full object-cover transition-opacity duration-1000 ${isReady ? 'opacity-100' : 'opacity-0'}`}
+      >
+        <source src={url} type="video/mp4" />
+      </video>
+      <div className={`absolute inset-0 bg-black/30 transition-opacity duration-1000 ${isReady ? 'opacity-100' : 'opacity-0'}`}></div>
+      <div className={`absolute inset-0 flex items-center justify-center z-10 px-6 transition-all duration-1000 ${isReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
+          Design beyond<br />imagination
+        </h2>
+      </div>
+    </>
+  );
+};
+
 const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -59,29 +87,7 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       {/* Slide Content */}
       <div className="absolute inset-0 w-full h-full">
         {activeSlide.type === 'video' ? (
-          <>
-            <video
-              key={activeSlide.url}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-              poster={HERO_SLIDES[0]?.imageUrl}
-              onError={handleVideoError}
-              className="absolute min-w-full min-h-full object-cover animate-fade-in"
-            >
-              <source src={activeSlide.url} type="video/mp4" />
-            </video>
-            {/* Dark overlay for video */}
-            <div className="absolute inset-0 bg-black/30"></div>
-            {/* Text overlay for video */}
-            <div className="absolute inset-0 flex items-center justify-center z-10 px-6">
-              <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
-                Design beyond<br />imagination
-              </h2>
-            </div>
-          </>
+          <VideoSlide url={activeSlide.url} onVideoError={handleVideoError} />
         ) : (
           <>
             <div

@@ -124,7 +124,7 @@ const App: React.FC = () => {
           <img
             src="/SNS-logo-2.2.png"
             alt={FIRM_NAME}
-            className="h-16 md:h-20 w-auto object-contain"
+            className="h-24 md:h-32 w-auto object-contain"
           />
         </div>
 
