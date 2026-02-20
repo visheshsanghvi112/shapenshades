@@ -300,7 +300,7 @@ export const PROJECTS: Project[] = [
   {
     id: '10',
     title: '2500 SQ FT VILLA',
-    location: 'Delhi',
+    location: 'Ratnagiri',
     category: 'Architecture',
     type: 'ARCHITECTURE',
     subCategory: 'RESIDENTIAL',
@@ -312,7 +312,7 @@ export const PROJECTS: Project[] = [
   {
     id: '11',
     title: 'BUNGALOW',
-    location: 'Ratnagiri',
+    location: 'Delhi',
     category: 'Architecture',
     type: 'ARCHITECTURE',
     subCategory: 'RESIDENTIAL',
