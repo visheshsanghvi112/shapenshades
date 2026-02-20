@@ -300,13 +300,18 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [selectedImages, setSelectedImages] = useState<Record<string, Set<string>>>({});
   // Feature 10: Bulk project selection
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
-  // Tour
   const [tourStep, setTourStep] = useState<number | null>(null);
   // Auto-save timer
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const coverUploadTarget = useRef<string | null>(null);
+  // ImgBB Library
+  const [imgbbLibraryOpen, setImgbbLibraryOpen] = useState(false);
+  const [imgbbLibraryTarget, setImgbbLibraryTarget] = useState<{ projectId: string; gallery: GalleryKey } | null>(null);
+  const [imgbbImages, setImgbbImages] = useState<{ id: string; url: string; thumb: string; title: string }[]>([]);
+  const [imgbbLoading, setImgbbLoading] = useState(false);
+  const [imgbbError, setImgbbError] = useState<string | null>(null);
   const devBypass = !isFirebaseConfigured || import.meta.env.VITE_DEV_ADMIN_BYPASS === 'true';
 
   const archiveCount = useMemo(() => projects.filter((p) => p.archived).length, [projects]);
@@ -1939,6 +1944,121 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => handleFileUpload(e.target.files)} />
       <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCoverFileUpload(e.target.files)} />
 
+      {/* ── ImgBB Library Modal ── */}
+      {imgbbLibraryOpen && (
+        <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setImgbbLibraryOpen(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span className="w-6 h-6 bg-violet-600 rounded-lg flex items-center justify-center">
+                    <ImageIcon size={14} className="text-white" />
+                  </span>
+                  ImgBB Library
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">All images uploaded to your ImgBB account — click any to add to gallery</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {!imgbbLoading && imgbbImages.length > 0 && (
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{imgbbImages.length} images</span>
+                )}
+                <button
+                  onClick={() => {
+                    setImgbbLibraryOpen(false);
+                    setImgbbImages([]);
+                    setImgbbError(null);
+                  }}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-black"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {imgbbLoading && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-10 h-10 rounded-full border-4 border-gray-100 border-t-violet-600 animate-spin" />
+                  <p className="text-sm font-medium text-gray-400">Fetching your ImgBB library…</p>
+                </div>
+              )}
+              {imgbbError && (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+                  <p className="text-sm font-semibold text-red-500">Could not load library</p>
+                  <p className="text-xs text-gray-400 max-w-sm">{imgbbError}</p>
+                  <button
+                    onClick={async () => {
+                      setImgbbLoading(true);
+                      setImgbbError(null);
+                      try {
+                        const res = await fetch(`https://api.imgbb.com/1/images?key=${IMGBB_API_KEY}&page=1&perpage=200`);
+                        const json = await res.json();
+                        if (!json.data) throw new Error(json.error?.message ?? 'Failed');
+                        setImgbbImages((json.data as { id: string; url: string; thumb: { url: string }; title: string }[]).map((img) => ({ id: img.id, url: img.url, thumb: img.thumb?.url ?? img.url, title: img.title })));
+                      } catch (err) {
+                        setImgbbError(err instanceof Error ? err.message : 'Failed');
+                      } finally {
+                        setImgbbLoading(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl hover:bg-violet-700 transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!imgbbLoading && !imgbbError && imgbbImages.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+                  <ImageIcon size={40} className="text-gray-200" />
+                  <p className="text-sm font-medium text-gray-400">No images found in your ImgBB account</p>
+                </div>
+              )}
+              {!imgbbLoading && imgbbImages.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  {imgbbImages.map((img) => (
+                    <button
+                      key={img.id}
+                      onClick={async () => {
+                        if (!imgbbLibraryTarget) return;
+                        const { projectId, gallery } = imgbbLibraryTarget;
+                        updateDraft(projectId, (d) => {
+                          if (!d.galleries[gallery].includes(img.url)) {
+                            d.galleries[gallery] = [...d.galleries[gallery], img.url];
+                          }
+                        });
+                        if (!devBypass) {
+                          const proj = projects.find((p) => p.id === projectId);
+                          if (proj) {
+                            const current = proj.galleries[gallery] ?? [];
+                            if (!current.includes(img.url)) {
+                              await setDoc(doc(db, FIRESTORE_COLLECTION, projectId), {
+                                galleries: { ...proj.galleries, [gallery]: [...current, img.url] },
+                                updatedAt: serverTimestamp(),
+                              }, { merge: true });
+                            }
+                          }
+                        }
+                        flash('ok', 'Image added to gallery');
+                        setImgbbLibraryOpen(false);
+                      }}
+                      className="relative aspect-square rounded-xl overflow-hidden group border-2 border-transparent hover:border-violet-500 transition-colors"
+                      title={img.title}
+                    >
+                      <img src={img.thumb} alt={img.title} className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                        <span className="opacity-0 group-hover:opacity-100 text-white text-[10px] font-bold uppercase tracking-wider bg-violet-600 px-2 py-1 rounded-lg transition-opacity">Add</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto space-y-8">
         {/* ──── SECTION 1: Header & Controls ──── */}
         <div className="sticky top-4 z-[40] bg-white/80 backdrop-blur-xl border border-white/40 shadow-sm rounded-3xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-300">
@@ -2624,6 +2744,35 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                   className="px-4 py-2.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors whitespace-nowrap"
                                 >
                                   Add
+                                </button>
+                                <button
+                                  title="Browse your ImgBB image library"
+                                  onClick={async () => {
+                                    setImgbbLibraryTarget({ projectId: project.id, gallery: activeTab });
+                                    setImgbbLibraryOpen(true);
+                                    if (imgbbImages.length > 0) return; // already fetched
+                                    setImgbbLoading(true);
+                                    setImgbbError(null);
+                                    try {
+                                      const res = await fetch(`https://api.imgbb.com/1/images?key=${IMGBB_API_KEY}&page=1&perpage=200`);
+                                      const json = await res.json();
+                                      if (!json.data) throw new Error(json.error?.message ?? 'Failed to load ImgBB library');
+                                      const imgs = (json.data as { id: string; url: string; thumb: { url: string }; title: string }[]).map((img) => ({
+                                        id: img.id,
+                                        url: img.url,
+                                        thumb: img.thumb?.url ?? img.url,
+                                        title: img.title,
+                                      }));
+                                      setImgbbImages(imgs);
+                                    } catch (err) {
+                                      setImgbbError(err instanceof Error ? err.message : 'Could not load ImgBB library');
+                                    } finally {
+                                      setImgbbLoading(false);
+                                    }
+                                  }}
+                                  className="px-3 py-2.5 bg-violet-600 text-white text-xs font-bold rounded-xl hover:bg-violet-700 transition-colors whitespace-nowrap flex items-center gap-1.5"
+                                >
+                                  <ImageIcon size={14} /> Library
                                 </button>
                               </div>
 
