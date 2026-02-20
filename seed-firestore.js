@@ -1,19 +1,28 @@
-/**
- * Seed Firestore with default projects from constants.ts
- * Run: node seed-firestore.js
- */
-
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+// Manual .env loader for local Node environment
+try {
+  const envPath = join(process.cwd(), '.env');
+  const envContent = readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const [key, value] = line.split('=');
+    if (key && value) process.env[key.trim()] = value.trim();
+  });
+} catch (e) {
+  console.warn('⚠️ No .env file found. Ensure environment variables are set manually.');
+}
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBSULRps4GYC8XRi-tqKUMhYzfWPe9VNFc",
-  authDomain: "shapenshades-74d41.firebaseapp.com",
-  projectId: "shapenshades-74d41",
-  storageBucket: "shapenshades-74d41.firebasestorage.app",
-  messagingSenderId: "1025632982903",
-  appId: "1:1025632982903:web:ba6ba67575316b3cae3372",
-  measurementId: "G-QY0X7QKVYE"
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
@@ -168,7 +177,7 @@ const PROJECTS = [
 
 async function seedFirestore() {
   console.log('🌱 Starting Firestore seed...');
-  console.log(`📍 Project ID: shapenshades-74d41`);
+  console.log(`📍 Project ID: ${process.env.VITE_FIREBASE_PROJECT_ID}`);
   console.log(`📦 Collection: projects`);
   console.log(`📊 Documents to create: ${PROJECTS.length}\n`);
 
