@@ -1,6 +1,6 @@
 # System Integration Overview
 
-This document explains specifically how the **Shapes & Shades** application connects to external services: **Firebase** (for backend/database) and **ImgBB** (for image hosting).
+This document explains specifically how the **Shape N Shades** application connects to external services: **Firebase** (for backend/database) and **ImgBB** (for image hosting).
 
 ---
 
@@ -63,7 +63,7 @@ The integration assumes a direct API call from the browser to ImgBB's servers.
 We have a helper function `uploadToImgBB` that handles the API request:
 
 ```typescript
-const IMGBB_API_KEY = '...'; // Your API Key
+const IMGBB_API_KEY = '...'; 
 
 const uploadToImgBB = async (file: File): Promise<string> => {
   // 1. Prepare the form data

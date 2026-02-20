@@ -14,7 +14,7 @@
 
 ## About
 
-**Shapes & Shades** is a full-service architecture, interior design, and construction consulting firm founded on 9th September 2019 by Architects **Sohan Suthar** and **Sumit Kalle**. This repository contains the source code for the official portfolio website — a modern, minimalist showcase of the firm's work and design philosophy.
+**Shape N Shades** is a full-service architecture, interior design, and construction consulting firm founded on 9th September 2019 by Architect **Sohan Suthar**. This repository contains the source code for the official portfolio website — a modern, minimalist showcase of the firm's work and design philosophy.
 
 > *"We believe great design is not just seen — it is experienced."*
 

@@ -96,7 +96,7 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             >
               <img
                 src={activeSlide.url}
-                alt="Shapes & Shades — Architecture & Interior Design"
+                alt="Shape N Shades | Architecture & Interior Design"
                 className="w-full h-full object-cover"
                 loading="eager"
                 decoding="async"

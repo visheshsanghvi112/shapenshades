@@ -39,11 +39,11 @@ const App: React.FC = () => {
 
     // Dynamic SEO Titles
     const titles: Record<ViewState, string> = {
-      HOME: `Shapes & Shades — Architecture & Interior Design Studio`,
-      PROJECTS: `Projects | Shapes & Shades`,
-      ABOUT: `About Us | Shapes & Shades`,
-      CONTACT: `Contact | Shapes & Shades`,
-      ADMIN: `Admin Console | Shapes & Shades`
+      HOME: `Shape N Shades | Architecture & Interior Design Studio`,
+      PROJECTS: `Projects | Shape N Shades`,
+      ABOUT: `About Us | Shape N Shades`,
+      CONTACT: `Contact | Shape N Shades`,
+      ADMIN: `Admin Console | Shape N Shades`
     };
     document.title = titles[currentView] || titles.HOME;
 
