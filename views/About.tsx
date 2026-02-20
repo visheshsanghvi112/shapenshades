@@ -67,18 +67,18 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const testimonials = [
     {
       quote: "Shape N Shades transformed our vision into a space that feels like home and art at the same time. Their attention to detail is unmatched.",
-      name: "Rajesh Mehta",
-      title: "Villa Owner, Hyderabad"
+      name: "Girish",
+      title: "Mumbai"
     },
     {
       quote: "Working with them was seamless from concept to completion. They understood exactly what we needed before we even said it.",
-      name: "Priya Sharma",
-      title: "Homeowner, Jaipur"
+      name: "Sushant",
+      title: "Mumbai"
     },
     {
       quote: "The team brought a level of creativity and professionalism that exceeded all our expectations. Our office space is now our competitive advantage.",
-      name: "Amit Desai",
-      title: "CEO, TechVentures"
+      name: "Sahu",
+      title: "CEO, Mumbai"
     },
     {
       quote: "They don't just design spaces — they design feelings. Every room has a purpose and every corner tells a story.",
