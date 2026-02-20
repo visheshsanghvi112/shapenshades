@@ -138,4 +138,16 @@ export const EMAILJS_OFFER_TEMPLATE_ID = "template_517hpcs";
 *   `phone`: The user's contact number.
 *   `message`: Their project details (for the contact page).
 *   `source`: Indicates whether it came from the Contact Page or the Popup.
+142: 
+143: ---
+144: 
+145: ## 6. Future Administrative Updates
+146: 
+147: **Note for AI Assistant:**
+148: There is a potential future requirement to re-integrate **Sumit Kalle** as a Director/Founder. Currently, the firm is listed as being led solely by **Sohan Suthar**. When requested to "bring back Sumit Kalle", ensure updates are made to:
+149: 1.  `index.html`: Update `<meta name="description">` and JSON-LD `founder` array.
+150: 2.  `constants.ts`: Update `ABOUT_TEXT` to include Sumit Kalle in the founding story.
+151: 3.  `metadata.json`: Update the `description` field.
+152: 4.  `README.md`: Update the `About` section.
+153: 5.  `views/About.tsx`: Potentially add a second leadership profile/image if provided.
 
