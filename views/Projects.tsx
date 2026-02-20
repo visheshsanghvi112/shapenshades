@@ -503,8 +503,20 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                     // 3. Pexels / Direct Video
                     if (/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(url) || url.includes('pexels.com/video')) {
                       return (
-                        <div key={`finished-${idx}`} className="w-full bg-black rounded-lg overflow-hidden">
-                          <video controls className="w-full h-auto max-h-[90vh]" preload="metadata">
+                        <div key={`finished-${idx}`} className="w-full bg-black rounded-lg overflow-hidden"
+                          ref={(el) => {
+                            // Hide wrapper if video fails (e.g. local file not uploaded to server)
+                          }}
+                        >
+                          <video
+                            controls
+                            className="w-full h-auto max-h-[90vh]"
+                            preload="metadata"
+                            onError={(e) => {
+                              const wrapper = e.currentTarget.closest('div') as HTMLElement | null;
+                              if (wrapper) wrapper.style.display = 'none';
+                            }}
+                          >
                             <source src={url} />
                             Your browser does not support the video tag.
                           </video>
@@ -562,7 +574,15 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                     if (/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(url) || url.includes('pexels.com/video')) {
                       return (
                         <div key={`development-${idx}`} className="w-full bg-black rounded-lg overflow-hidden">
-                          <video controls className="w-full h-auto max-h-[90vh]" preload="metadata">
+                          <video
+                            controls
+                            className="w-full h-auto max-h-[90vh]"
+                            preload="metadata"
+                            onError={(e) => {
+                              const wrapper = e.currentTarget.closest('div') as HTMLElement | null;
+                              if (wrapper) wrapper.style.display = 'none';
+                            }}
+                          >
                             <source src={url} />
                             Your browser does not support the video tag.
                           </video>
