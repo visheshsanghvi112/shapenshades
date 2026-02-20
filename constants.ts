@@ -159,6 +159,31 @@ const GALLERY_BANDRA = [
   '/bandra/IMG_7034.JPG', '/bandra/IMG_7049.JPG', '/bandra/IMG_7050.JPG',
 ];
 
+const GALLERY_GHATKOPAR_FLAT = [
+  '/mix/GH2.jpg',
+  '/mix/GH6.jpg',
+  '/mix/GH7.jpg',
+  '/mix/GH20.jpg',
+  '/mix/GH22.jpg',
+  '/mix/GH26.jpg',
+  '/mix/GHF3.jpg',
+  '/mix/GHF5.jpg',
+  '/mix/GHF18.jpg',
+  '/mix/GHF21.jpg',
+];
+
+const GALLERY_MUMBAI_BV = [
+  '/mix/bv/bv3.jpg',
+  '/mix/bv/bv4.jpg',
+  '/mix/bv/bv10.jpg',
+  '/mix/bv/bv14.jpg',
+  '/mix/bv/bv16.jpg',
+  '/mix/bv/bv20.jpg',
+  '/mix/bv/bv35.jpg',
+  '/mix/bv/bv37.jpg',
+  '/mix/bv big/BV1.jpg',
+];
+
 const GALLERY_ASHRAY = [
   '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.30 PM (1).jpeg',
   '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.30 PM.jpeg',
@@ -286,6 +311,30 @@ export const PROJECTS: Project[] = [
     displayOrder: 8,
   },
   {
+    id: '14',
+    title: 'RUSHIL FLAT – GHATKOPAR',
+    location: 'Ghatkopar',
+    category: 'Residential',
+    type: 'INTERIOR DESIGN',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/mix/GH2.jpg',
+    galleries: { finished: GALLERY_GHATKOPAR_FLAT, development: [] },
+    published: true,
+    displayOrder: 9,
+  },
+  {
+    id: '15',
+    title: 'MUMBAI BV',
+    location: 'Mumbai',
+    category: 'Residential',
+    type: 'INTERIOR DESIGN',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/mix/bv/bv3.jpg',
+    galleries: { finished: GALLERY_MUMBAI_BV, development: [] },
+    published: true,
+    displayOrder: 10,
+  },
+  {
     id: '9',
     title: '3500 SQ FT VILLA',
     location: 'Nashik',
@@ -295,7 +344,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch2_3500 SQ VILLA IN NASHIK/F1.jpg.jpeg',
     galleries: { finished: GALLERY_ARCH2, development: [] },
     published: true,
-    displayOrder: 9,
+    displayOrder: 11,
   },
   {
     id: '10',
@@ -307,7 +356,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch4DELHIVILLA/SBLV4.jpg.jpeg',
     galleries: { finished: GALLERY_ARCH4, development: [] },
     published: true,
-    displayOrder: 10,
+    displayOrder: 12,
   },
   {
     id: '11',
@@ -319,7 +368,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch3_BUNGALOW IN RATNAGIRI/S14.jpg.jpeg',
     galleries: { finished: GALLERY_ARCH3, development: [] },
     published: true,
-    displayOrder: 11,
+    displayOrder: 13,
   },
   {
     id: '12',
@@ -331,7 +380,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch5 BUNGALOW AT KOLHAPUR/KV1.jpg.jpeg',
     galleries: { finished: GALLERY_ARCH5, development: [] },
     published: true,
-    displayOrder: 12,
+    displayOrder: 14,
   },
   {
     id: '13',
@@ -343,7 +392,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch6 RESIDENCY AT KOLHAPUR/T1..jpg.jpeg',
     galleries: { finished: GALLERY_ARCH6, development: [] },
     published: true,
-    displayOrder: 13,
+    displayOrder: 15,
   },
 ];
 
