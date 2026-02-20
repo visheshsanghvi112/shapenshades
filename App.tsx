@@ -32,10 +32,21 @@ const App: React.FC = () => {
   const [showHeader, setShowHeader] = useState(true);
   const lastScrollY = useRef(0);
 
-  // Update URL when view changes
+  // Update URL and Title when view changes
   useEffect(() => {
     window.location.hash = currentView.toLowerCase();
     window.scrollTo(0, 0); // Scroll to top on page change
+
+    // Dynamic SEO Titles
+    const titles: Record<ViewState, string> = {
+      HOME: `Shapes & Shades — Architecture & Interior Design Studio`,
+      PROJECTS: `Projects | Shapes & Shades`,
+      ABOUT: `About Us | Shapes & Shades`,
+      CONTACT: `Contact | Shapes & Shades`,
+      ADMIN: `Admin Console | Shapes & Shades`
+    };
+    document.title = titles[currentView] || titles.HOME;
+
     trackPageView(currentView);
   }, [currentView]);
 
