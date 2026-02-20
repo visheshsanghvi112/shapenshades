@@ -399,16 +399,53 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
       if (!snap.empty) {
         snap.forEach((docSnap) => {
-          // Block any doc that isn't a canonical project (prevents Pune/Delhi reappear)
-          if (!canonicalIds.has(docSnap.id)) return;
-
           const data = docSnap.data();
           const archived = Boolean(data.isDeleted);
-          if (!archived) ids.push(docSnap.id);
 
+          // Skip any document explicitly marked as deleted — this blocks old ghost projects (Pune/Delhi etc.)
+          // Still track their IDs so they can appear in the archived view
+          if (archived) {
+            if (canonicalIds.has(docSnap.id)) {
+              // Canonical projects that are deleted → show in archived view
+              const base = baseMap.get(docSnap.id);
+              baseMap.set(docSnap.id, {
+                ...base!,
+                published: false,
+                archived: true,
+              });
+            }
+            // Non-canonical deleted projects are fully ignored (true ghost cleanup)
+            return;
+          }
+
+          // If this project is NOT in constants.ts, it was created from the Admin panel.
+          // Build it purely from Firestore data and add it to the map.
+          if (!canonicalIds.has(docSnap.id)) {
+            const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : [];
+            const development = Array.isArray(data.galleries?.development) ? data.galleries.development : [];
+            ids.push(docSnap.id);
+            baseMap.set(docSnap.id, {
+              id: docSnap.id,
+              title: data.title ?? 'Untitled Project',
+              location: data.location ?? 'Mumbai',
+              category: data.category ?? 'Projects',
+              type: data.type ?? 'INTERIOR DESIGN',
+              subCategory: data.subCategory ?? 'RESIDENTIAL',
+              imageUrl: data.imageUrl ?? finished[0] ?? '',
+              galleries: { finished, development },
+              published: data.published ?? false,
+              description: data.description,
+              displayOrder: data.displayOrder,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              archived: false,
+            });
+            return;
+          }
+
+          // Canonical project — merge Firestore overrides on top of constants.ts base
+          ids.push(docSnap.id);
           const base = baseMap.get(docSnap.id);
-
-          // Use Firestore data if present, otherwise fallback to constants.ts
           const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
           const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
@@ -421,12 +458,12 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
             imageUrl: data.imageUrl ?? base?.imageUrl ?? (finished[0] || ''),
             galleries: { finished, development },
-            published: archived ? false : (data.published ?? base?.published ?? false),
+            published: data.published ?? base?.published ?? false,
             description: data.description ?? base?.description,
             displayOrder: data.displayOrder ?? base?.displayOrder,
             createdAt: data.createdAt ?? base?.createdAt,
             updatedAt: data.updatedAt ?? base?.updatedAt,
-            archived,
+            archived: false,
           });
         });
       }

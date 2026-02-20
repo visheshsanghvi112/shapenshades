@@ -193,19 +193,40 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
       if (!snap.empty) {
         snap.forEach((docSnap) => {
-          // Block any doc that isn't a canonical project (prevents Pune/Delhi reappear)
-          if (!canonicalIds.has(docSnap.id)) return;
-
           const data = docSnap.data();
 
+          // Skip any document explicitly marked as deleted — this blocks old ghost projects (Pune/Delhi etc.)
           if (data.isDeleted) {
             baseMap.delete(docSnap.id);
             return;
           }
 
-          const base = baseMap.get(docSnap.id);
+          // If this project is NOT in constants.ts, it was created from the Admin panel.
+          // Build it purely from Firestore data and add it to the map.
+          if (!canonicalIds.has(docSnap.id)) {
+            const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : [];
+            const development = Array.isArray(data.galleries?.development) ? data.galleries.development : [];
+            baseMap.set(docSnap.id, {
+              id: docSnap.id,
+              title: data.title ?? 'Untitled Project',
+              location: data.location ?? 'Mumbai',
+              category: data.category ?? 'Projects',
+              type: data.type ?? 'INTERIOR DESIGN',
+              subCategory: data.subCategory ?? 'RESIDENTIAL',
+              imageUrl: data.imageUrl ?? finished[0] ?? '',
+              galleries: { finished, development },
+              published: data.published ?? false,
+              description: data.description,
+              displayOrder: data.displayOrder,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              archived: false,
+            });
+            return;
+          }
 
-          // Use Firestore data if present, otherwise fallback to constants.ts
+          // Canonical project — merge Firestore overrides on top of constants.ts base
+          const base = baseMap.get(docSnap.id);
           const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
           const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
