@@ -26,10 +26,10 @@ const Footer: React.FC<FooterProps> = ({ isDarkBackground = false, position = 'f
           © SHAPE N SHADES 2025
         </span>
         <div className="flex space-x-6 opacity-70">
-          <a href="#" className="hover:opacity-100 transition-opacity">
+          <a href="https://www.instagram.com/shape.n.shades.design?igsh=MXVyZTg2MWlpNTc4eA==" target="_blank" rel="noopener noreferrer" className="hover:opacity-100 transition-opacity">
             <Instagram size={20} strokeWidth={1.5} />
           </a>
-          <a href="#" className="hover:opacity-100 transition-opacity">
+          <a href="https://www.youtube.com/@shapeNshades_designs" target="_blank" rel="noopener noreferrer" className="hover:opacity-100 transition-opacity">
             <Youtube size={20} strokeWidth={1.5} />
           </a>
           <a href="#" className="hover:opacity-100 transition-opacity">
