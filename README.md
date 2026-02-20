@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="LOGO.png" alt="Shapes & Shades Logo" width="240" />
-  <h1>Shapes & Shades</h1>
+  <img src="LOGO.png" alt="Shape N Shades Logo" width="240" />
+  <h1>Shape N Shades</h1>
   <p><strong>Architecture & Interior Design Studio</strong></p>
   <p>
     <a href="https://shapesandshades.com">Website</a> •
@@ -127,5 +127,5 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/visheshsanghvi">Vishesh Sanghvi</a> for <strong>Shapes & Shades</strong></sub>
+  <sub>Built with ❤️ by <a href="https://github.com/visheshsanghvi">Vishesh Sanghvi</a> for <strong>Shape N Shades</strong></sub>
 </div>

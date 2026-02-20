@@ -12,7 +12,7 @@ import { DEV_STORAGE_KEY } from './Projects';
 const FIRESTORE_COLLECTION = 'projects';
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000';
 // DEV_STORAGE_KEY imported from Projects
-const DEV_STORAGE_PREFIX = 'shapes_shades_dev_projects_';
+const DEV_STORAGE_PREFIX = 'shape_n_shades_dev_projects_';
 
 const TOUR_STEPS: { target: string; title: string; description: string }[] = [
   { target: 'dashboard-stats', title: 'Dashboard Overview', description: 'Your portfolio health at a glance — total projects, published count, archived, and image stats.' },
@@ -34,7 +34,7 @@ const TOUR_STEPS: { target: string; title: string; description: string }[] = [
 // Tour steps that require the first project to be expanded
 const TOUR_EXPANDED_TARGETS = new Set(['gallery-tabs', 'upload-area', 'cover-section', 'autosave-indicator']);
 const TOUR_SPOTLIGHT_PAD = 8;
-const IMGBB_API_KEY = 'ac67b61d339631b073051b879364c0bd';
+const IMGBB_API_KEY = import.meta.env.VITE_IMGBB_API_KEY;
 
 const IMGBB_MAX_SIZE = 32 * 1024 * 1024; // 32 MB free-tier limit
 
@@ -1503,7 +1503,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           {/* Left panel — brand + info */}
           <div className="space-y-8 text-center lg:text-left">
             <div className="flex justify-center lg:justify-start">
-              <img src="/logo-web.png" alt="Shapes & Shades" className="h-20 md:h-24 w-auto object-contain brightness-0 invert opacity-90" />
+              <img src="/logo-web.png" alt="Shape N Shades" className="h-20 md:h-24 w-auto object-contain brightness-0 invert opacity-90" />
             </div>
             <div className="space-y-3">
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif-display leading-tight tracking-tight">

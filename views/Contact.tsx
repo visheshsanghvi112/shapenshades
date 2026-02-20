@@ -76,7 +76,7 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           <div>
             <h3 className="text-sm font-bold tracking-[0.2em] uppercase text-gray-400 mb-8">Studio</h3>
             <address className="not-italic text-xl md:text-2xl font-light leading-relaxed text-gray-800">
-              Shapes & Shades <br />
+              Shape N Shades <br />
               705, Prathvi Sadan, B.P. Road,<br />
               Bhayandar East, Thane<br />
               Maharashtra 401105
@@ -211,7 +211,7 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         <h3 className="text-sm font-bold tracking-[0.2em] uppercase text-gray-400 mb-6 text-center">Find Us</h3>
         <div className="w-full aspect-[16/9] md:aspect-[21/9] border border-gray-100 overflow-hidden">
           <iframe
-            title="Shapes & Shades Studio Location"
+            title="Shape N Shades Studio Location"
             src="https://maps.google.com/maps?q=705+Prathvi+Sadan+BP+Road+Bhayandar+East+Thane+401105&t=&z=15&ie=UTF8&iwloc=&output=embed"
             width="100%"
             height="100%"

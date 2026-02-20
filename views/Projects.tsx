@@ -44,8 +44,8 @@ const HEADER_QUOTES = [
 
 // Fallback image in case Unsplash links expire or fail
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000';
-export const DEV_STORAGE_KEY = 'shapes_shades_dev_projects_v4';
-const DEV_STORAGE_PREFIX = 'shapes_shades_dev_projects_';
+export const DEV_STORAGE_KEY = 'shape_n_shades_dev_projects_v5';
+const DEV_STORAGE_PREFIX = 'shape_n_shades_dev_projects_';
 
 const sortProjects = (entries: Project[]): Project[] => {
   return [...entries].sort((a, b) => {

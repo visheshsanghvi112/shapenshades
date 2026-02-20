@@ -66,7 +66,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const testimonials = [
     {
-      quote: "Shapes & Shades transformed our vision into a space that feels like home and art at the same time. Their attention to detail is unmatched.",
+      quote: "Shape N Shades transformed our vision into a space that feels like home and art at the same time. Their attention to detail is unmatched.",
       name: "Rajesh Mehta",
       title: "Villa Owner, Hyderabad"
     },
@@ -263,7 +263,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
             <div className="space-y-4 text-gray-700 leading-relaxed">
               <p>
-                Sohan Suthar is the visionary force behind Shapes & Shades, bringing over a decade of experience in architecture and design.
+                Sohan Suthar is the visionary force behind Shape N Shades, bringing over a decade of experience in architecture and design.
                 His approach combines technical precision with artistic sensibility, creating spaces that are both functional and inspiring.
               </p>
               <p>

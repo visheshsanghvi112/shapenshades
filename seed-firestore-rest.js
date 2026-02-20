@@ -1,11 +1,20 @@
-/**
- * Seed Firestore via REST API (no auth needed)
- * Run: node seed-firestore-rest.js
- */
-
 import fetch from 'node-fetch';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-const PROJECT_ID = 'shapenshades-74d41';
+// Manual .env loader for local Node environment
+try {
+  const envPath = join(process.cwd(), '.env');
+  const envContent = readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const [key, value] = line.split('=');
+    if (key && value) process.env[key.trim()] = value.trim();
+  });
+} catch (e) {
+  console.warn('⚠️ No .env file found. Ensure environment variables are set manually.');
+}
+
+const PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID;
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
 const PROJECTS = [

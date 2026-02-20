@@ -104,7 +104,7 @@ const PREDEFINED_QA: QA[] = [
   },
   {
     question: 'Who are you?',
-    answer: 'I\'m the Shapes & Shades virtual assistant. I\'m here to help you navigate our services and answer any questions you might have about design!',
+    answer: 'I\'m the Shape N Shades virtual assistant. I\'m here to help you navigate our services and answer any questions you might have about design!',
     keywords: ['who are you', 'what are you', 'your name'],
   },
   {
@@ -136,7 +136,7 @@ const PREDEFINED_QA: QA[] = [
 
 const GREETING: Message = {
   id: 0,
-  text: "Hello! 👋 Welcome to Shapes & Shades. I'm here to help you with any questions about our design services. Pick a topic below or type your own!",
+  text: "Hello! 👋 Welcome to Shape N Shades. I'm here to help you with any questions about our design services. Pick a topic below or type your own!",
   sender: 'bot',
   timestamp: new Date(),
   isTyped: true // Greeting acts as already typed
@@ -299,7 +299,7 @@ const Chatbot: React.FC = () => {
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="font-semibold text-sm tracking-wide">Shapes & Shades</p>
+                <p className="font-semibold text-sm tracking-wide">Shape N Shades</p>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
                   <p className="text-[11px] text-gray-300">Online now</p>
@@ -411,7 +411,7 @@ const Chatbot: React.FC = () => {
 
           {/* Powered-by footer */}
           <div className="bg-gray-50 border-t border-gray-100 py-1.5 text-center shrink-0">
-            <p className="text-[9px] text-gray-400 tracking-wider uppercase">Shapes & Shades • Design Studio</p>
+            <p className="text-[9px] text-gray-400 tracking-wider uppercase">Shape N Shades • Design Studio</p>
           </div>
         </div>
       )}
