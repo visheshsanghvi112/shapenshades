@@ -125,7 +125,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   ];
 
   return (
-    <div className="w-full min-h-screen bg-white pt-28 pb-20">
+    <div className="w-full min-h-screen bg-white pt-40 pb-20">
 
       {/* 1. Manifesto / Hero Statement */}
       <div className="px-6 md:px-12 lg:px-24 mb-24 animate-fade-in-up">

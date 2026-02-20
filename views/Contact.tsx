@@ -58,7 +58,7 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
 
   return (
-    <div className="w-full min-h-screen bg-white flex flex-col pt-32 px-6 md:px-12 lg:px-24 pb-20">
+    <div className="w-full min-h-screen bg-white flex flex-col pt-40 px-6 md:px-12 lg:px-24 pb-20">
 
       {/* Header Statement */}
       <div className="max-w-5xl mx-auto w-full mb-20 text-center animate-fade-in-up">

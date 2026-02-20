@@ -583,7 +583,7 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
   // --- GRID VIEW ---
   return (
-    <div className="w-full min-h-screen bg-white pt-32 pb-20">
+    <div className="w-full min-h-screen bg-white pt-40 pb-20">
 
       {/* Header Section */}
       <div className="px-6 md:px-12 lg:px-24 text-center mb-16 animate-fade-in">
