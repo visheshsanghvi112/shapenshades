@@ -411,12 +411,12 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           // Still track their IDs so they can appear in the archived view
           if (archived) {
             if (canonicalIds.has(docSnap.id)) {
-              // Canonical projects that are deleted → show in archived view
+              // Canonical projects that are deleted → Force restore to code version
               const base = baseMap.get(docSnap.id);
               baseMap.set(docSnap.id, {
                 ...base!,
-                published: false,
-                archived: true,
+                published: true,
+                archived: false,
               });
             }
             // Non-canonical deleted projects are fully ignored (true ghost cleanup)
@@ -451,29 +451,21 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           // Canonical project — merge Firestore overrides on top of constants.ts base
           const base = baseMap.get(docSnap.id);
 
-          // CRITICAL SAFETY CHECK: If Firestore doc has a canonical ID (1-13) but belongs to a different project 
-          // (detected by title mismatch), we discard the Firestore fields and keep the constants.ts version.
-          const fireTitle = (data.title || '').toUpperCase();
-          const baseTitle = (base?.title || '').toUpperCase();
-          if (baseTitle && fireTitle && !fireTitle.includes(baseTitle) && !baseTitle.includes(fireTitle)) {
-            console.warn(`[Admin] Conflict detected for ID ${docSnap.id}. Keeping constants.ts version.`);
-            return;
-          }
-
           ids.push(docSnap.id);
           const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
           const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
           baseMap.set(docSnap.id, {
             id: docSnap.id,
-            title: data.title ?? base?.title ?? 'Untitled Project',
-            location: data.location ?? base?.location ?? 'Mumbai',
+            // FORCE canonical title/location/imageUrl from constants.ts – this prevents "ID Hijacking"
+            title: canonicalIds.has(docSnap.id) ? (base?.title ?? data.title) : (data.title ?? base?.title ?? 'Untitled Project'),
+            location: canonicalIds.has(docSnap.id) ? (base?.location ?? data.location) : (data.location ?? base?.location ?? 'Mumbai'),
             category: data.category ?? base?.category ?? 'Residential',
             type: data.type ?? base?.type ?? 'INTERIOR DESIGN',
             subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-            imageUrl: data.imageUrl ?? base?.imageUrl ?? (finished[0] || ''),
+            imageUrl: canonicalIds.has(docSnap.id) ? (base?.imageUrl ?? data.imageUrl) : (data.imageUrl ?? base?.imageUrl ?? (finished[0] || '')),
             galleries: { finished, development },
-            published: data.published ?? base?.published ?? false,
+            published: data.published ?? base?.published ?? true,
             description: data.description ?? base?.description,
             displayOrder: data.displayOrder ?? base?.displayOrder,
             createdAt: data.createdAt ?? base?.createdAt,

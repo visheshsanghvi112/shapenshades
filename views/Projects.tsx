@@ -197,7 +197,14 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
           // Skip any document explicitly marked as deleted — this blocks old ghost projects (Pune/Delhi etc.)
           if (data.isDeleted) {
-            baseMap.delete(docSnap.id);
+            if (canonicalIds.has(docSnap.id)) {
+              // If it's a canonical project, we don't delete it from the map.
+              // We just ensure it's "un-archived" so the code version shows.
+              const base = baseMap.get(docSnap.id);
+              if (base) baseMap.set(docSnap.id, { ...base, archived: false, published: true });
+            } else {
+              baseMap.delete(docSnap.id);
+            }
             return;
           }
 
@@ -228,28 +235,18 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           // Canonical project — merge Firestore overrides on top of constants.ts base
           const base = baseMap.get(docSnap.id);
 
-          // CRITICAL SAFETY CHECK: If Firestore doc has a canonical ID (1-13) but belongs to a different project 
-          // (e.g. stale Firestore data from before the constants update), we discard the Firestore fields 
-          // and keep the constants.ts version to prevent "messed up projects".
-          // We detect this by checking if the base title exists in the Firestore title.
-          const fireTitle = (data.title || '').toUpperCase();
-          const baseTitle = (base?.title || '').toUpperCase();
-          if (baseTitle && fireTitle && !fireTitle.includes(baseTitle) && !baseTitle.includes(fireTitle)) {
-            console.warn(`[Projects] Conflict detected for ID ${docSnap.id}. Firestore says "${fireTitle}" but constants.ts says "${baseTitle}". Keeping constants.ts version.`);
-            return;
-          }
-
           const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
           const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
           baseMap.set(docSnap.id, {
             id: docSnap.id,
-            title: data.title ?? base?.title ?? 'Untitled Project',
-            location: data.location ?? base?.location ?? 'Mumbai',
+            // FORCE canonical title/location/imageUrl from constants.ts – this prevents "ID Hijacking"
+            title: canonicalIds.has(docSnap.id) ? (base?.title ?? data.title) : (data.title ?? base?.title ?? 'Untitled Project'),
+            location: canonicalIds.has(docSnap.id) ? (base?.location ?? data.location) : (data.location ?? base?.location ?? 'Mumbai'),
             category: data.category ?? base?.category ?? 'Projects',
             type: data.type ?? base?.type ?? 'ARCHITECTURE',
             subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-            imageUrl: data.imageUrl ?? base?.imageUrl ?? (finished[0] || ''),
+            imageUrl: canonicalIds.has(docSnap.id) ? (base?.imageUrl ?? data.imageUrl) : (data.imageUrl ?? base?.imageUrl ?? (finished[0] || '')),
             galleries: { finished, development },
             published: data.published ?? base?.published ?? false,
             description: data.description ?? base?.description,
