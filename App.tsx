@@ -129,7 +129,7 @@ const App: React.FC = () => {
         className={`fixed top-0 left-0 w-full z-40 p-6 md:p-8 flex justify-between items-center transition-transform duration-500 ease-in-out ${headerTextColor} ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}
       >
         <div
-          className="cursor-pointer z-50 pointer-events-auto"
+          className={`cursor-pointer z-50 pointer-events-auto ${currentView === 'ADMIN' ? 'opacity-0 pointer-events-none' : ''}`}
           onClick={() => setCurrentView('HOME')}
         >
           <img
