@@ -450,20 +450,25 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
           // Canonical project — merge Firestore overrides on top of constants.ts base
           const base = baseMap.get(docSnap.id);
+          const isCanonical = canonicalIds.has(docSnap.id);
 
           ids.push(docSnap.id);
-          const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
-          const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
+          // For canonical projects: constants.ts galleries are the source of truth (correct file paths on disk)
+          const finished = isCanonical
+            ? (base?.galleries.finished ?? [])
+            : (Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []));
+          const development = isCanonical
+            ? (base?.galleries.development ?? [])
+            : (Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []));
 
           baseMap.set(docSnap.id, {
             id: docSnap.id,
-            // FORCE canonical title/location/imageUrl from constants.ts – this prevents "ID Hijacking"
-            title: canonicalIds.has(docSnap.id) ? (base?.title ?? data.title) : (data.title ?? base?.title ?? 'Untitled Project'),
-            location: canonicalIds.has(docSnap.id) ? (base?.location ?? data.location) : (data.location ?? base?.location ?? 'Mumbai'),
+            title: data.title ?? base?.title ?? 'Untitled Project',
+            location: data.location ?? base?.location ?? 'Mumbai',
             category: data.category ?? base?.category ?? 'Residential',
             type: data.type ?? base?.type ?? 'INTERIOR DESIGN',
             subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-            imageUrl: canonicalIds.has(docSnap.id) ? (base?.imageUrl ?? data.imageUrl) : (data.imageUrl ?? base?.imageUrl ?? (finished[0] || '')),
+            imageUrl: isCanonical ? (base?.imageUrl ?? data.imageUrl ?? '') : (data.imageUrl ?? base?.imageUrl ?? (finished[0] || '')),
             galleries: { finished, development },
             published: data.published ?? base?.published ?? true,
             description: data.description ?? base?.description,

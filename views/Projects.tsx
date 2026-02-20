@@ -232,21 +232,25 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             return;
           }
 
-          // Canonical project — merge Firestore overrides on top of constants.ts base
+          // For canonical projects: constants.ts galleries/imageUrl are the source of truth
+          // (they point to actual files on disk). But title/location come from Firestore so Admin edits work.
           const base = baseMap.get(docSnap.id);
-
-          const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
-          const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
+          const isCanonical = canonicalIds.has(docSnap.id);
+          const finished = isCanonical
+            ? (base?.galleries.finished ?? [])
+            : (Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []));
+          const development = isCanonical
+            ? (base?.galleries.development ?? [])
+            : (Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []));
 
           baseMap.set(docSnap.id, {
             id: docSnap.id,
-            // FORCE canonical title/location/imageUrl from constants.ts – this prevents "ID Hijacking"
-            title: canonicalIds.has(docSnap.id) ? (base?.title ?? data.title) : (data.title ?? base?.title ?? 'Untitled Project'),
-            location: canonicalIds.has(docSnap.id) ? (base?.location ?? data.location) : (data.location ?? base?.location ?? 'Mumbai'),
+            title: data.title ?? base?.title ?? 'Untitled Project',
+            location: data.location ?? base?.location ?? 'Mumbai',
             category: data.category ?? base?.category ?? 'Projects',
             type: data.type ?? base?.type ?? 'ARCHITECTURE',
             subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-            imageUrl: canonicalIds.has(docSnap.id) ? (base?.imageUrl ?? data.imageUrl) : (data.imageUrl ?? base?.imageUrl ?? (finished[0] || '')),
+            imageUrl: isCanonical ? (base?.imageUrl ?? data.imageUrl ?? '') : (data.imageUrl ?? base?.imageUrl ?? (finished[0] || '')),
             galleries: { finished, development },
             published: data.published ?? base?.published ?? false,
             description: data.description ?? base?.description,
