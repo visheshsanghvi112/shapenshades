@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="LOGO.png" alt="Shape N Shades Logo" width="240" />
+  <img src="public/SNS-logo-2.2.png" alt="Shape N Shades Logo" width="240" />
   <h1>Shape N Shades</h1>
   <p><strong>Architecture & Interior Design Studio</strong></p>
   <p>
@@ -85,7 +85,7 @@ npm run preview
 ```
 shapesandshades/
 ├── public/              # Static assets (favicon, robots.txt, sitemap)
-│   ├── logo.png
+│   ├── SNS-logo-2.2.png
 │   ├── robots.txt
 │   └── sitemap.xml
 ├── components/          # Reusable UI components
@@ -105,7 +105,6 @@ shapesandshades/
 ├── index.tsx            # React entry point
 ├── vite.config.ts       # Vite configuration
 ├── tsconfig.json        # TypeScript configuration
-├── LOGO.png             # Brand logo
 └── package.json
 ```
 
