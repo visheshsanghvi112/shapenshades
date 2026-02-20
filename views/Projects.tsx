@@ -129,37 +129,61 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [projects, setProjects] = useState<Project[]>(sortProjects(normalizeProjects(PROJECTS)));
   const devBypass = !isFirebaseConfigured || import.meta.env.VITE_DEV_ADMIN_BYPASS === 'true';
 
-  // --- AUTO-FIX FOR MATUNGA (ID 5) ---
+  // --- AUTO-FIX FOR MATUNGA (ID 5) & DELHI/RATNAGIRI (IDs 10 & 11) ---
   useEffect(() => {
     if (projects.length === 0) return;
 
-    const healMatunga = async () => {
-      const matunga = projects.find(p => p.id === '5');
-      const canonical = PROJECTS.find(p => p.id === '5');
+    const autoHeal = async () => {
+      const healQueue = [];
 
-      if (matunga && canonical) {
-        // Auto-Restore: If database version is suspiciously small (<5 images) but canonical has many (>10)
-        if (matunga.galleries.finished.length < 5 && canonical.galleries.finished.length > 10) {
-          console.warn('[AutoHeal] Project 5 (Matunga) seems broken in DB. Restoring canonical images...');
-          if (!devBypass && isFirebaseConfigured) {
-            try {
-              const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-              const { db } = await import('../src/firebase');
-              await setDoc(doc(db, 'projects', '5'), {
-                galleries: canonical.galleries,
-                imageUrl: canonical.imageUrl,
-                updatedAt: serverTimestamp(),
-                isDeleted: false
-              }, { merge: true });
-              console.log('[AutoHeal] Matunga restored successfully.');
-            } catch (err) {
-              console.error('[AutoHeal] Failed execution:', err);
+      const matunga = projects.find(p => p.id === '5');
+      const canonical5 = PROJECTS.find(p => p.id === '5');
+      if (matunga && canonical5 && matunga.galleries.finished.length < 5 && canonical5.galleries.finished.length > 10) {
+        healQueue.push('5');
+      }
+
+      // Check if Delhi/Ratnagiri are corrupted (e.g. have wrong folder names in their gallery paths)
+      const project10 = projects.find(p => p.id === '10');
+      const canonical10 = PROJECTS.find(p => p.id === '10');
+      // If project 10 doesn't have the correct first canonical image, it's corrupted
+      if (project10 && canonical10 && project10.galleries.finished[0] !== canonical10.galleries.finished[0]) {
+        healQueue.push('10');
+      }
+
+      const project11 = projects.find(p => p.id === '11');
+      const canonical11 = PROJECTS.find(p => p.id === '11');
+      if (project11 && canonical11 && project11.galleries.finished[0] !== canonical11.galleries.finished[0]) {
+        healQueue.push('11');
+      }
+
+      if (healQueue.length > 0) {
+        console.warn(`[AutoHeal] Projects ${healQueue.join(', ')} seem broken in DB. Restoring canonical images...`);
+        if (!devBypass && isFirebaseConfigured) {
+          try {
+            const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+            const { db } = await import('../src/firebase');
+
+            for (const id of healQueue) {
+              const canonical = PROJECTS.find(p => p.id === id);
+              if (canonical) {
+                await setDoc(doc(db, 'projects', id), {
+                  galleries: canonical.galleries,
+                  imageUrl: canonical.imageUrl,
+                  title: canonical.title, // Also force restore title to ensure consistency
+                  location: canonical.location,
+                  updatedAt: serverTimestamp(),
+                  isDeleted: false
+                }, { merge: true });
+              }
             }
+            console.log(`[AutoHeal] Restored ${healQueue.join(', ')} successfully.`);
+          } catch (err) {
+            console.error('[AutoHeal] Failed execution:', err);
           }
         }
       }
     };
-    healMatunga();
+    autoHeal();
   }, [projects, devBypass]);
 
   // Firestore listener merges cloud projects with defaults

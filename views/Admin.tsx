@@ -369,6 +369,56 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     return unsub;
   }, [devBypass, reportError]);
 
+  // --- AUTO-FIX FOR MATUNGA (ID 5) & DELHI/RATNAGIRI (IDs 10 & 11) ---
+  useEffect(() => {
+    if (projects.length === 0) return;
+
+    const autoHeal = async () => {
+      const healQueue = [];
+      const matunga = projects.find(p => p.id === '5');
+      const canonical5 = PROJECTS.find(p => p.id === '5');
+      if (matunga && canonical5 && matunga.galleries.finished.length < 5 && canonical5.galleries.finished.length > 10) {
+        healQueue.push('5');
+      }
+
+      const project10 = projects.find(p => p.id === '10');
+      const canonical10 = PROJECTS.find(p => p.id === '10');
+      if (project10 && canonical10 && project10.galleries.finished[0] !== canonical10.galleries.finished[0]) {
+        healQueue.push('10');
+      }
+
+      const project11 = projects.find(p => p.id === '11');
+      const canonical11 = PROJECTS.find(p => p.id === '11');
+      if (project11 && canonical11 && project11.galleries.finished[0] !== canonical11.galleries.finished[0]) {
+        healQueue.push('11');
+      }
+
+      if (healQueue.length > 0) {
+        console.warn(`[AutoHeal] Projects ${healQueue.join(', ')} broken. Restoring canonical images...`);
+        if (!devBypass && isFirebaseConfigured) {
+          try {
+            for (const id of healQueue) {
+              const canonical = PROJECTS.find(p => p.id === id);
+              if (canonical) {
+                await setDoc(doc(db, FIRESTORE_COLLECTION, id), {
+                  galleries: canonical.galleries,
+                  imageUrl: canonical.imageUrl,
+                  title: canonical.title,
+                  location: canonical.location,
+                  updatedAt: serverTimestamp(),
+                  isDeleted: false
+                }, { merge: true });
+              }
+            }
+          } catch (err) {
+            console.error('[AutoHeal] Failed execution:', err);
+          }
+        }
+      }
+    };
+    autoHeal();
+  }, [projects, devBypass]);
+
   // Firestore real-time listener for project documents (or local fallback in dev mode)
   useEffect(() => {
     if (devBypass) {
