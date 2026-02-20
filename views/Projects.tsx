@@ -232,16 +232,11 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             return;
           }
 
-          // For canonical projects: constants.ts galleries/imageUrl are the source of truth
-          // (they point to actual files on disk). But title/location come from Firestore so Admin edits work.
+          // For canonical projects, we now allow Firestore to override galleries/imageUrl
+          // so changes via Admin panel are reflected.
           const base = baseMap.get(docSnap.id);
-          const isCanonical = canonicalIds.has(docSnap.id);
-          const finished = isCanonical
-            ? (base?.galleries.finished ?? [])
-            : (Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []));
-          const development = isCanonical
-            ? (base?.galleries.development ?? [])
-            : (Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []));
+          const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
+          const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
           baseMap.set(docSnap.id, {
             id: docSnap.id,
@@ -250,7 +245,7 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             category: data.category ?? base?.category ?? 'Projects',
             type: data.type ?? base?.type ?? 'ARCHITECTURE',
             subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-            imageUrl: isCanonical ? (base?.imageUrl ?? data.imageUrl ?? '') : (data.imageUrl ?? base?.imageUrl ?? (finished[0] || '')),
+            imageUrl: data.imageUrl ?? base?.imageUrl ?? (finished[0] || ''),
             galleries: { finished, development },
             published: data.published ?? base?.published ?? false,
             description: data.description ?? base?.description,
@@ -261,32 +256,7 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         });
       }
 
-      // --- FINAL PASS: DEDUPLICATION ---
-      // If we have any projects with the same title, keep the one with the canonical ID and drop the other.
-      const finalProjects: Project[] = [];
-      const titleMap = new Map<string, Project>();
-
-      [...baseMap.values()].forEach(p => {
-        const cleanTitle = p.title.toUpperCase().trim();
-        const cleanLoc = (p.location || '').toUpperCase().trim();
-        const dedupKey = `${cleanTitle}|${cleanLoc}`;
-        const existing = titleMap.get(dedupKey);
-
-        if (!existing) {
-          titleMap.set(dedupKey, p);
-        } else {
-          // Both share title. Canonical ID wins.
-          const isCurrentCanonical = canonicalIds.has(p.id);
-          const isExistingCanonical = canonicalIds.has(existing.id);
-
-          if (isCurrentCanonical && !isExistingCanonical) {
-            titleMap.set(dedupKey, p); // overwrite with canonical version
-          }
-          // if both are canonical or both are not, the first one found (by displayOrder/fetch) wins.
-        }
-      });
-
-      const mergedProjects = sortProjects([...titleMap.values()]);
+      const mergedProjects = sortProjects([...baseMap.values()]);
       setProjects(mergedProjects.filter((p) => !p.archived));
     });
 

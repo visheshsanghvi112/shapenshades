@@ -450,16 +450,12 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
           // Canonical project — merge Firestore overrides on top of constants.ts base
           const base = baseMap.get(docSnap.id);
-          const isCanonical = canonicalIds.has(docSnap.id);
 
           ids.push(docSnap.id);
-          // For canonical projects: constants.ts galleries are the source of truth (correct file paths on disk)
-          const finished = isCanonical
-            ? (base?.galleries.finished ?? [])
-            : (Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []));
-          const development = isCanonical
-            ? (base?.galleries.development ?? [])
-            : (Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []));
+          // Allow Firestore updates to override canonical galleries and images
+          // so edits made in the admin panel actually reflect in the app.
+          const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
+          const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
           baseMap.set(docSnap.id, {
             id: docSnap.id,
@@ -468,7 +464,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             category: data.category ?? base?.category ?? 'Residential',
             type: data.type ?? base?.type ?? 'INTERIOR DESIGN',
             subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-            imageUrl: isCanonical ? (base?.imageUrl ?? data.imageUrl ?? '') : (data.imageUrl ?? base?.imageUrl ?? (finished[0] || '')),
+            imageUrl: data.imageUrl ?? base?.imageUrl ?? (finished[0] || ''),
             galleries: { finished, development },
             published: data.published ?? base?.published ?? true,
             description: data.description ?? base?.description,
@@ -480,25 +476,7 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         });
       }
 
-      // --- FINAL PASS: DEDUPLICATION ---
-      // If we have any projects with the same title, keep the one with the canonical ID and drop the other.
-      const titleMap = new Map<string, Project>();
-      [...baseMap.values()].forEach(p => {
-        const cleanTitle = p.title.toUpperCase().trim();
-        const cleanLoc = (p.location || '').toUpperCase().trim();
-        const dedupKey = `${cleanTitle}|${cleanLoc}`;
-        const existing = titleMap.get(dedupKey);
-        if (!existing) {
-          titleMap.set(dedupKey, p);
-        } else {
-          // Priority to canonical IDs (1-13)
-          if (canonicalIds.has(p.id) && !canonicalIds.has(existing.id)) {
-            titleMap.set(dedupKey, p);
-          }
-        }
-      });
-
-      const mergedProjects = normalizeProjects([...titleMap.values()]);
+      const mergedProjects = normalizeProjects([...baseMap.values()]);
       setProjects(mergedProjects);
       setExistingIds([...new Set([...ids, ...mergedProjects.filter((p) => p.archived).map((p) => p.id)])]);
       setLoadingProjects(false);
