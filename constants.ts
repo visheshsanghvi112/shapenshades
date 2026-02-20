@@ -312,7 +312,7 @@ export const PROJECTS: Project[] = [
   },
   {
     id: '14',
-    title: 'RUSHIL FLAT – GHATKOPAR',
+    title: 'GHATKOPAR FLAT',
     location: 'Ghatkopar',
     category: 'Residential',
     type: 'INTERIOR DESIGN',
