@@ -449,8 +449,18 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           }
 
           // Canonical project — merge Firestore overrides on top of constants.ts base
-          ids.push(docSnap.id);
           const base = baseMap.get(docSnap.id);
+
+          // CRITICAL SAFETY CHECK: If Firestore doc has a canonical ID (1-13) but belongs to a different project 
+          // (detected by title mismatch), we discard the Firestore fields and keep the constants.ts version.
+          const fireTitle = (data.title || '').toUpperCase();
+          const baseTitle = (base?.title || '').toUpperCase();
+          if (baseTitle && fireTitle && !fireTitle.includes(baseTitle) && !baseTitle.includes(fireTitle)) {
+            console.warn(`[Admin] Conflict detected for ID ${docSnap.id}. Keeping constants.ts version.`);
+            return;
+          }
+
+          ids.push(docSnap.id);
           const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
           const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
@@ -473,7 +483,25 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         });
       }
 
-      const mergedProjects = normalizeProjects([...baseMap.values()]);
+      // --- FINAL PASS: DEDUPLICATION ---
+      // If we have any projects with the same title, keep the one with the canonical ID and drop the other.
+      const titleMap = new Map<string, Project>();
+      [...baseMap.values()].forEach(p => {
+        const cleanTitle = p.title.toUpperCase().trim();
+        const cleanLoc = (p.location || '').toUpperCase().trim();
+        const dedupKey = `${cleanTitle}|${cleanLoc}`;
+        const existing = titleMap.get(dedupKey);
+        if (!existing) {
+          titleMap.set(dedupKey, p);
+        } else {
+          // Priority to canonical IDs (1-13)
+          if (canonicalIds.has(p.id) && !canonicalIds.has(existing.id)) {
+            titleMap.set(dedupKey, p);
+          }
+        }
+      });
+
+      const mergedProjects = normalizeProjects([...titleMap.values()]);
       setProjects(mergedProjects);
       setExistingIds([...new Set([...ids, ...mergedProjects.filter((p) => p.archived).map((p) => p.id)])]);
       setLoadingProjects(false);

@@ -227,6 +227,18 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
           // Canonical project — merge Firestore overrides on top of constants.ts base
           const base = baseMap.get(docSnap.id);
+
+          // CRITICAL SAFETY CHECK: If Firestore doc has a canonical ID (1-13) but belongs to a different project 
+          // (e.g. stale Firestore data from before the constants update), we discard the Firestore fields 
+          // and keep the constants.ts version to prevent "messed up projects".
+          // We detect this by checking if the base title exists in the Firestore title.
+          const fireTitle = (data.title || '').toUpperCase();
+          const baseTitle = (base?.title || '').toUpperCase();
+          if (baseTitle && fireTitle && !fireTitle.includes(baseTitle) && !baseTitle.includes(fireTitle)) {
+            console.warn(`[Projects] Conflict detected for ID ${docSnap.id}. Firestore says "${fireTitle}" but constants.ts says "${baseTitle}". Keeping constants.ts version.`);
+            return;
+          }
+
           const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
           const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
 
@@ -248,7 +260,32 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         });
       }
 
-      const mergedProjects = sortProjects([...baseMap.values()]);
+      // --- FINAL PASS: DEDUPLICATION ---
+      // If we have any projects with the same title, keep the one with the canonical ID and drop the other.
+      const finalProjects: Project[] = [];
+      const titleMap = new Map<string, Project>();
+
+      [...baseMap.values()].forEach(p => {
+        const cleanTitle = p.title.toUpperCase().trim();
+        const cleanLoc = (p.location || '').toUpperCase().trim();
+        const dedupKey = `${cleanTitle}|${cleanLoc}`;
+        const existing = titleMap.get(dedupKey);
+
+        if (!existing) {
+          titleMap.set(dedupKey, p);
+        } else {
+          // Both share title. Canonical ID wins.
+          const isCurrentCanonical = canonicalIds.has(p.id);
+          const isExistingCanonical = canonicalIds.has(existing.id);
+
+          if (isCurrentCanonical && !isExistingCanonical) {
+            titleMap.set(dedupKey, p); // overwrite with canonical version
+          }
+          // if both are canonical or both are not, the first one found (by displayOrder/fetch) wins.
+        }
+      });
+
+      const mergedProjects = sortProjects([...titleMap.values()]);
       setProjects(mergedProjects.filter((p) => !p.archived));
     });
 

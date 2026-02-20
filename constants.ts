@@ -17,6 +17,77 @@ export const ABOUT_TEXT = [
 
 // ─── REAL PROJECT GALLERIES (based on actual public folders) ───────────────────
 
+// ─── ARCHITECTURE PROJECTS ───────────────────────────────────────────────────
+
+const GALLERY_ARCH2 = [
+  '/arch2_3500 SQ VILLA IN NASHIK/F1.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/VV44.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/v16.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/v19.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/v4.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/v6.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/v7.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/v9.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/vv20.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/vv21.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/vv22.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/vv23.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/vv24.jpg.jpeg',
+  '/arch2_3500 SQ VILLA IN NASHIK/vv26.jpg.jpeg',
+];
+
+const GALLERY_ARCH3 = [
+  '/arch3_2500 SQ FT VILLA IN DELHI/S14.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/S15.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/S19.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/S8.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/S9.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/SB1.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/SB2.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/SE1.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/SE2.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/SE3.jpg.jpeg',
+  '/arch3_2500 SQ FT VILLA IN DELHI/SE4.jpg.jpeg',
+];
+
+const GALLERY_ARCH4 = [
+  '/arch4BUNGALOW IN RATNAGIRI/SBLV4.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/SBM2.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/SBM4.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/ST10.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/ST11.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/ST12.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/ST5.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/ST6.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/ST8.jpg.jpeg',
+  '/arch4BUNGALOW IN RATNAGIRI/ST9.jpg.jpeg',
+];
+
+const GALLERY_ARCH5 = [
+  '/arch5 BUNGALOW AT KOLHAPUR/KV1.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV10.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV11.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV13.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV2.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV3.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV4.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV5.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV6.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV7.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV8.jpg.jpeg',
+  '/arch5 BUNGALOW AT KOLHAPUR/KV9.jpg.jpeg',
+];
+
+const GALLERY_ARCH6 = [
+  '/arch6 RESIDENCY AT KOLHAPUR/T1..jpg.jpeg',
+  '/arch6 RESIDENCY AT KOLHAPUR/T13.jpg.jpeg',
+  '/arch6 RESIDENCY AT KOLHAPUR/T19.jpg.jpeg',
+  '/arch6 RESIDENCY AT KOLHAPUR/t2.jpg.jpeg',
+  '/arch6 RESIDENCY AT KOLHAPUR/t3.jpg.jpeg',
+  '/arch6 RESIDENCY AT KOLHAPUR/t4.jpg.jpeg',
+  '/arch6 RESIDENCY AT KOLHAPUR/t5.jpg.jpeg',
+];
+
 const GALLERY_VILLA = [
   '/villa/SR1.jpg',
   '/villa/SR1 (1).jpg',
@@ -213,6 +284,66 @@ export const PROJECTS: Project[] = [
     galleries: { finished: GALLERY_ASHRAY, development: [] },
     published: true,
     displayOrder: 8,
+  },
+  {
+    id: '9',
+    title: '3500 SQ FT VILLA',
+    location: 'Nashik',
+    category: 'Architecture',
+    type: 'ARCHITECTURE',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/arch2_3500 SQ VILLA IN NASHIK/F1.jpg.jpeg',
+    galleries: { finished: GALLERY_ARCH2, development: [] },
+    published: true,
+    displayOrder: 9,
+  },
+  {
+    id: '10',
+    title: '2500 SQ FT VILLA',
+    location: 'Delhi',
+    category: 'Architecture',
+    type: 'ARCHITECTURE',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/arch3_2500 SQ FT VILLA IN DELHI/S14.jpg.jpeg',
+    galleries: { finished: GALLERY_ARCH3, development: [] },
+    published: true,
+    displayOrder: 10,
+  },
+  {
+    id: '11',
+    title: 'BUNGALOW',
+    location: 'Ratnagiri',
+    category: 'Architecture',
+    type: 'ARCHITECTURE',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/arch4BUNGALOW IN RATNAGIRI/SBLV4.jpg.jpeg',
+    galleries: { finished: GALLERY_ARCH4, development: [] },
+    published: true,
+    displayOrder: 11,
+  },
+  {
+    id: '12',
+    title: 'BUNGALOW',
+    location: 'Kolhapur',
+    category: 'Architecture',
+    type: 'ARCHITECTURE',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/arch5 BUNGALOW AT KOLHAPUR/KV1.jpg.jpeg',
+    galleries: { finished: GALLERY_ARCH5, development: [] },
+    published: true,
+    displayOrder: 12,
+  },
+  {
+    id: '13',
+    title: 'RESIDENCY',
+    location: 'Kolhapur',
+    category: 'Architecture',
+    type: 'ARCHITECTURE',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/arch6 RESIDENCY AT KOLHAPUR/T1..jpg.jpeg',
+    galleries: { finished: GALLERY_ARCH6, development: [] },
+    published: true,
+    displayOrder: 13,
   },
 ];
 
