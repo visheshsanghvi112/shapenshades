@@ -2373,13 +2373,23 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                         {/* Image Gradient Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent z-10 transition-opacity duration-300 group-hover:via-black/20" />
 
-                        <img
-                          src={draft.imageUrl || FALLBACK_IMAGE}
-                          alt={draft.title || draft.location}
-                          draggable={false}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 select-none"
-                          loading="lazy"
-                        />
+                        {/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(draft.imageUrl || '') ? (
+                          <video
+                            autoPlay muted loop playsInline preload="metadata"
+                            draggable={false}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 select-none"
+                          >
+                            <source src={draft.imageUrl} />
+                          </video>
+                        ) : (
+                          <img
+                            src={draft.imageUrl || FALLBACK_IMAGE}
+                            alt={draft.title || draft.location}
+                            draggable={false}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 select-none"
+                            loading="lazy"
+                          />
+                        )}
 
                         {/* Top Badges */}
                         <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
@@ -2654,7 +2664,13 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                                 <div className="md:col-span-2 aspect-video rounded-2xl overflow-hidden relative group bg-gray-100 border border-gray-200">
                                   {draft.imageUrl ? (
                                     <>
-                                      <img src={draft.imageUrl} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                      {/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(draft.imageUrl || '') ? (
+                                        <video autoPlay muted loop playsInline preload="metadata" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
+                                          <source src={draft.imageUrl} />
+                                        </video>
+                                      ) : (
+                                        <img src={draft.imageUrl} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                      )}
                                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                                     </>
                                   ) : (
