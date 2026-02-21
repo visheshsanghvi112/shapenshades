@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PROJECTS } from '../constants';
 import { Project, ViewProps } from '../types';
 import { ArrowUpRight, ArrowLeft } from 'lucide-react';
@@ -129,57 +129,73 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
   const [projects, setProjects] = useState<Project[]>(sortProjects(normalizeProjects(PROJECTS)));
   const devBypass = !isFirebaseConfigured || import.meta.env.VITE_DEV_ADMIN_BYPASS === 'true';
 
-  // --- AUTO-FIX FOR MATUNGA (ID 5) & DELHI/RATNAGIRI (IDs 10 & 11) ---
+  // Track which projects we've already attempted to heal this session
+  const healedRef = useRef<Set<string>>(new Set());
+
+  // --- AUTO-FIX FOR MATUNGA (ID 5) & DELHI/RATNAGIRI (IDs 10 & 11) & MAKHIJA (16) ---
   useEffect(() => {
     if (projects.length === 0) return;
 
     const autoHeal = async () => {
-      const healQueue = [];
+      const healQueue: string[] = [];
 
-      const matunga = projects.find(p => p.id === '5');
-      const canonical5 = PROJECTS.find(p => p.id === '5');
-      if (matunga && canonical5 && matunga.galleries.finished.length < 5 && canonical5.galleries.finished.length > 10) {
-        healQueue.push('5');
-      }
+      const checkProject = (id: string) => {
+        if (healedRef.current.has(id)) return; // Already attempted this session
+        const proj = projects.find(p => p.id === id);
+        const canonical = PROJECTS.find(p => p.id === id);
+        if (!proj || !canonical) return;
+        // Special check for id 5 (Matunga)
+        if (id === '5' && proj.galleries.finished.length < 5 && canonical.galleries.finished.length > 10) {
+          healQueue.push(id);
+          return;
+        }
+        // General check: first gallery item doesn't match canonical
+        if (id !== '5' && proj.galleries.finished[0] !== canonical.galleries.finished[0]) {
+          healQueue.push(id);
+        }
+      };
 
-      // Check if Delhi/Ratnagiri are corrupted (e.g. have wrong folder names in their gallery paths)
-      const project10 = projects.find(p => p.id === '10');
-      const canonical10 = PROJECTS.find(p => p.id === '10');
-      // If project 10 doesn't have the correct first canonical image, it's corrupted
-      if (project10 && canonical10 && project10.galleries.finished[0] !== canonical10.galleries.finished[0]) {
-        healQueue.push('10');
-      }
+      checkProject('5');
+      checkProject('10');
+      checkProject('11');
+      checkProject('16');
 
-      const project11 = projects.find(p => p.id === '11');
-      const canonical11 = PROJECTS.find(p => p.id === '11');
-      if (project11 && canonical11 && project11.galleries.finished[0] !== canonical11.galleries.finished[0]) {
-        healQueue.push('11');
-      }
+      if (healQueue.length === 0) return;
 
-      if (healQueue.length > 0) {
-        console.warn(`[AutoHeal] Projects ${healQueue.join(', ')} seem broken in DB. Restoring canonical images...`);
-        if (!devBypass && isFirebaseConfigured) {
-          try {
-            const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-            const { db } = await import('../src/firebase');
+      // Mark as attempted immediately to prevent re-entry
+      healQueue.forEach(id => healedRef.current.add(id));
 
-            for (const id of healQueue) {
-              const canonical = PROJECTS.find(p => p.id === id);
-              if (canonical) {
-                await setDoc(doc(db, 'projects', id), {
-                  galleries: canonical.galleries,
-                  imageUrl: canonical.imageUrl,
-                  title: canonical.title, // Also force restore title to ensure consistency
-                  location: canonical.location,
-                  updatedAt: serverTimestamp(),
-                  isDeleted: false
-                }, { merge: true });
-              }
+      console.warn(`[AutoHeal] Projects ${healQueue.join(', ')} seem broken in DB. Restoring canonical images...`);
+
+      if (!devBypass && isFirebaseConfigured) {
+        try {
+          const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+          const { db } = await import('../src/firebase');
+
+          for (const id of healQueue) {
+            const canonical = PROJECTS.find(p => p.id === id);
+            if (canonical) {
+              await setDoc(doc(db, 'projects', id), {
+                galleries: canonical.galleries,
+                imageUrl: canonical.imageUrl,
+                title: canonical.title,
+                location: canonical.location,
+                updatedAt: serverTimestamp(),
+                isDeleted: false
+              }, { merge: true });
             }
-            console.log(`[AutoHeal] Restored ${healQueue.join(', ')} successfully.`);
-          } catch (err) {
-            console.error('[AutoHeal] Failed execution:', err);
           }
+          console.log(`[AutoHeal] Restored ${healQueue.join(', ')} successfully.`);
+        } catch (err) {
+          console.error('[AutoHeal] Firestore write failed (likely permissions). Patching local state instead:', err);
+          // Firestore refused the write — patch local state so the UI still shows canonical data
+          setProjects(prev => prev.map(p => {
+            const canonical = PROJECTS.find(c => c.id === p.id);
+            if (canonical && healQueue.includes(p.id)) {
+              return { ...p, galleries: canonical.galleries, imageUrl: canonical.imageUrl };
+            }
+            return p;
+          }));
         }
       }
     };
@@ -259,8 +275,11 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           // For canonical projects, we now allow Firestore to override galleries/imageUrl
           // so changes via Admin panel are reflected.
           const base = baseMap.get(docSnap.id);
-          const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
-          const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
+          // Use Firestore galleries only if they have actual content; otherwise fall back to canonical
+          const fsFinished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : [];
+          const fsDevelopment = Array.isArray(data.galleries?.development) ? data.galleries.development : [];
+          const finished = fsFinished.length > 0 ? fsFinished : (base?.galleries.finished ?? []);
+          const development = fsDevelopment.length > 0 ? fsDevelopment : (base?.galleries.development ?? []);
 
           baseMap.set(docSnap.id, {
             id: docSnap.id,
@@ -269,7 +288,7 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             category: data.category ?? base?.category ?? 'Projects',
             type: data.type ?? base?.type ?? 'ARCHITECTURE',
             subCategory: data.subCategory ?? base?.subCategory ?? 'RESIDENTIAL',
-            imageUrl: data.imageUrl ?? base?.imageUrl ?? (finished[0] || ''),
+            imageUrl: data.imageUrl || base?.imageUrl || finished[0] || '',
             galleries: { finished, development },
             published: data.published ?? base?.published ?? false,
             description: data.description ?? base?.description,

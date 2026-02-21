@@ -504,8 +504,11 @@ const Admin: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           ids.push(docSnap.id);
           // Allow Firestore updates to override canonical galleries and images
           // so edits made in the admin panel actually reflect in the app.
-          const finished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : (base?.galleries.finished ?? []);
-          const development = Array.isArray(data.galleries?.development) ? data.galleries.development : (base?.galleries.development ?? []);
+          // But if Firestore has empty arrays, fall back to canonical data.
+          const fsFinished = Array.isArray(data.galleries?.finished) ? data.galleries.finished : [];
+          const fsDevelopment = Array.isArray(data.galleries?.development) ? data.galleries.development : [];
+          const finished = fsFinished.length > 0 ? fsFinished : (base?.galleries.finished ?? []);
+          const development = fsDevelopment.length > 0 ? fsDevelopment : (base?.galleries.development ?? []);
 
           baseMap.set(docSnap.id, {
             id: docSnap.id,
