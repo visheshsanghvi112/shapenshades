@@ -184,6 +184,10 @@ const GALLERY_MUMBAI_BV = [
   '/mix/bv big/BV1.jpg',
 ];
 
+const GALLERY_MAKHIJA = [
+  '/videos/Makhijaas SNS.mp4',
+];
+
 const GALLERY_ASHRAY = [
   '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.30 PM (1).jpeg',
   '/ashray Jaswanti jewel Kandiivali west/WhatsApp Image 2026-02-19 at 2.36.30 PM.jpeg',
@@ -335,6 +339,18 @@ export const PROJECTS: Project[] = [
     displayOrder: 10,
   },
   {
+    id: '16',
+    title: 'MAKHIJA',
+    location: 'Mumbai',
+    category: 'Residential',
+    type: 'INTERIOR DESIGN',
+    subCategory: 'RESIDENTIAL',
+    imageUrl: '/videos/Makhijaas SNS.mp4',
+    galleries: { finished: GALLERY_MAKHIJA, development: [] },
+    published: true,
+    displayOrder: 11,
+  },
+  {
     id: '9',
     title: '3500 SQ FT VILLA',
     location: 'Nashik',
@@ -344,7 +360,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch2_3500 SQ VILLA IN NASHIK/F1.jpg.jpeg',
     galleries: { finished: GALLERY_ARCH2, development: [] },
     published: true,
-    displayOrder: 11,
+    displayOrder: 12,
   },
   {
     id: '10',
@@ -356,7 +372,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch4DELHIVILLA/SBLV4.jpg.jpeg',
     galleries: { finished: GALLERY_ARCH4, development: [] },
     published: true,
-    displayOrder: 12,
+    displayOrder: 13,
   },
   {
     id: '11',
@@ -368,7 +384,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch3_BUNGALOW IN RATNAGIRI/S14.jpg.jpeg',
     galleries: { finished: GALLERY_ARCH3, development: [] },
     published: true,
-    displayOrder: 13,
+    displayOrder: 14,
   },
   {
     id: '12',
@@ -380,7 +396,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch5 BUNGALOW AT KOLHAPUR/KV1.jpg.jpeg',
     galleries: { finished: GALLERY_ARCH5, development: [] },
     published: true,
-    displayOrder: 14,
+    displayOrder: 15,
   },
   {
     id: '13',
@@ -392,7 +408,7 @@ export const PROJECTS: Project[] = [
     imageUrl: '/arch6 RESIDENCY AT KOLHAPUR/T1..jpg.jpeg',
     galleries: { finished: GALLERY_ARCH6, development: [] },
     published: true,
-    displayOrder: 15,
+    displayOrder: 16,
   },
 ];
 

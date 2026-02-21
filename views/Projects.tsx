@@ -730,12 +730,25 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               // Animation logic: Start invisible and translated down
               className="project-card group relative w-full aspect-[3/4] overflow-hidden cursor-pointer bg-gray-100 opacity-0 translate-y-16 transition-all duration-700 ease-out"
             >
-              <img
-                src={project.imageUrl}
-                onError={handleImageError}
-                alt={project.title}
-                className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
-              />
+              {/\.(mp4|mov|webm|ogv)(\?.*)?$/i.test(project.imageUrl) ? (
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
+                >
+                  <source src={project.imageUrl} />
+                </video>
+              ) : (
+                <img
+                  src={project.imageUrl}
+                  onError={handleImageError}
+                  alt={project.title}
+                  className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
+                />
+              )}
               {/* Overlay: subtle bottom gradient always, darker on hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent group-hover:from-black/70 transition-colors duration-500" />
 
