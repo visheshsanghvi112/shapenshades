@@ -35,3 +35,6 @@ Gemini_Generated_Image_*
 *.webm
 *.mkv
 *.avi
+
+# But allow specific project videos
+!public/videos/makhija-sns.mp4
