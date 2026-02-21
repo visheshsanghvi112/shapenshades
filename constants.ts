@@ -345,7 +345,7 @@ export const PROJECTS: Project[] = [
     category: 'Residential',
     type: 'INTERIOR DESIGN',
     subCategory: 'RESIDENTIAL',
-    imageUrl: '/videos/Makhijaas SNS.mp4',
+    imageUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1200&q=80&auto=format&fit=crop',
     galleries: { finished: GALLERY_MAKHIJA, development: [] },
     published: true,
     displayOrder: 11,
