@@ -185,7 +185,7 @@ const GALLERY_MUMBAI_BV = [
 ];
 
 const GALLERY_MAKHIJA = [
-  '/videos/Makhijaas SNS.mp4',
+  '/videos/makhija-sns.mp4',
 ];
 
 const GALLERY_ASHRAY = [
@@ -345,7 +345,7 @@ export const PROJECTS: Project[] = [
     category: 'Residential',
     type: 'INTERIOR DESIGN',
     subCategory: 'RESIDENTIAL',
-    imageUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1200&q=80&auto=format&fit=crop',
+    imageUrl: '/mix/DT1.jpg',
     galleries: { finished: GALLERY_MAKHIJA, development: [] },
     published: true,
     displayOrder: 11,
