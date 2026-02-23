@@ -50,7 +50,7 @@ const App: React.FC = () => {
 
     // Dynamic SEO Titles
     const titles: Record<ViewState, string> = {
-      HOME: `Shape N Shades | Architecture & Interior Design Studio`,
+      HOME: `Shape N Shades \u2013 Luxury Architecture & Interior Design Firm in Bhayandar East, Mumbai`,
       PROJECTS: `Projects | Shape N Shades`,
       ABOUT: `About Us | Shape N Shades`,
       CONTACT: `Contact | Shape N Shades`,
