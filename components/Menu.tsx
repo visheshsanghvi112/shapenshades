@@ -22,7 +22,7 @@ const Menu: React.FC<MenuProps> = ({ isOpen, onClose, onNavigate }) => {
   return (
     <div className="fixed inset-0 z-50 bg-[#f4f4f4] text-black flex flex-col justify-center items-center animate-fade-in">
       {/* Close Button positioned absolutely top right */}
-      <button 
+      <button
         onClick={onClose}
         className="absolute top-8 right-8 p-2 hover:bg-gray-200 rounded-full transition-colors"
       >
@@ -31,22 +31,24 @@ const Menu: React.FC<MenuProps> = ({ isOpen, onClose, onNavigate }) => {
 
       <nav className="flex flex-col items-center space-y-6">
         {menuItems.map((item) => (
-          <button
+          <a
             key={item.label}
-            onClick={() => {
+            href={`#${item.view.toLowerCase()}`}
+            onClick={(e) => {
+              // let the native hash routing take over, but still trigger our internal navigations
               onNavigate(item.view);
               onClose();
             }}
             className="text-2xl md:text-4xl font-semibold tracking-wider hover:text-gray-500 transition-colors uppercase font-brand"
           >
             {item.label}
-          </button>
+          </a>
         ))}
       </nav>
-      
+
       {/* Optional decorative background element or watermark */}
       <div className="absolute bottom-10 opacity-10 pointer-events-none">
-        <h1 className="text-6xl md:text-9xl font-brand">S & S</h1>
+        <div className="text-6xl md:text-9xl font-brand">S & S</div>
       </div>
     </div>
   );

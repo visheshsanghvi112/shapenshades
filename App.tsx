@@ -59,6 +59,20 @@ const App: React.FC = () => {
     };
     document.title = titles[currentView] || titles.HOME;
 
+    // Dynamic SEO Meta Descriptions
+    const descriptions: Record<ViewState, string> = {
+      HOME: `Shape N Shades is a luxury architecture and interior design firm in Bhayandar East, Mumbai. We specialize in premium residential villas, modern workspaces, and bespoke interior projects across Mumbai.`,
+      PROJECTS: `Explore our portfolio of luxury residential, commercial, and villa architectural projects by Shape N Shades in Mumbai and beyond.`,
+      ABOUT: `Learn about Shape N Shades, a premier architecture and interior design studio founded by Ar. Sohan Suthar in Mumbai, specializing in luxury spaces.`,
+      CONTACT: `Get in touch with Shape N Shades for your next architecture or interior design project in Mumbai. We turn your vision into reality.`,
+      ADMIN: `Admin Console for Shape N Shades.`,
+      INTERIOR_DESIGNERS_MUMBAI: `Shape N Shades is a premium architecture and interior design studio offering luxury residential, villa, and commercial interior solutions across Mumbai.`
+    };
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', descriptions[currentView] || descriptions.HOME);
+    }
+
     trackPageView(currentView);
   }, [currentView]);
 
