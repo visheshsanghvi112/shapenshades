@@ -1,4 +1,4 @@
-export type ViewState = 'HOME' | 'PROJECTS' | 'ABOUT' | 'CONTACT' | 'ADMIN';
+export type ViewState = 'HOME' | 'PROJECTS' | 'ABOUT' | 'CONTACT' | 'ADMIN' | 'INTERIOR_DESIGNERS_MUMBAI';
 
 export interface ProjectGalleries {
   finished: string[];

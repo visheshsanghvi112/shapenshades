@@ -22,8 +22,11 @@ const Footer: React.FC<FooterProps> = ({ isDarkBackground = false, position = 'f
   return (
     <footer className={`${baseClasses} ${textColorClass} transition-colors duration-500`}>
       <div className={contentClasses}>
-        <span className="text-xs tracking-widest font-semibold opacity-70">
-          © SHAPE N SHADES 2025
+        <span className="text-xs tracking-widest font-semibold opacity-70 flex flex-col sm:flex-row sm:items-center sm:gap-4">
+          <span>© SHAPE N SHADES 2025</span>
+          <a href="/interior-designers-mumbai" className="font-normal opacity-70 hover:opacity-100 transition-opacity mt-1 sm:mt-0 pb-[1px] border-b border-black/20 hover:border-black dark:border-white/20 dark:hover:border-white">
+            Interior Designers in Mumbai
+          </a>
         </span>
         <div className="flex space-x-6 opacity-70">
           <a href="https://www.instagram.com/shape.n.shades.design?igsh=MXVyZTg2MWlpNTc4eA==" target="_blank" rel="noopener noreferrer" className="hover:opacity-100 transition-opacity">

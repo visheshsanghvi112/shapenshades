@@ -13,13 +13,17 @@ import About from './views/About';
 import Projects from './views/Projects';
 import Contact from './views/Contact';
 import Admin from './views/Admin';
+import MumbaiSEO from './views/MumbaiSEO';
 import { Analytics } from '@vercel/analytics/react';
 
 const App: React.FC = () => {
   // Initialize from URL hash
   const getInitialView = (): ViewState => {
+    if (window.location.pathname === '/interior-designers-mumbai' || window.location.pathname === '/interior-designers-mumbai/') {
+      return 'INTERIOR_DESIGNERS_MUMBAI';
+    }
     const hash = window.location.hash.slice(1).toUpperCase();
-    const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT', 'ADMIN'];
+    const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT', 'ADMIN', 'INTERIOR_DESIGNERS_MUMBAI'];
     return validViews.includes(hash as ViewState) ? (hash as ViewState) : 'HOME';
   };
 
@@ -34,7 +38,14 @@ const App: React.FC = () => {
 
   // Update URL and Title when view changes
   useEffect(() => {
-    window.location.hash = currentView.toLowerCase();
+    if (currentView === 'INTERIOR_DESIGNERS_MUMBAI') {
+      window.history.replaceState(null, '', '/interior-designers-mumbai');
+    } else {
+      if (window.location.pathname !== '/') {
+        window.history.replaceState(null, '', '/');
+      }
+      window.location.hash = currentView.toLowerCase();
+    }
     window.scrollTo(0, 0); // Scroll to top on page change
 
     // Dynamic SEO Titles
@@ -43,7 +54,8 @@ const App: React.FC = () => {
       PROJECTS: `Projects | Shape N Shades`,
       ABOUT: `About Us | Shape N Shades`,
       CONTACT: `Contact | Shape N Shades`,
-      ADMIN: `Admin Console | Shape N Shades`
+      ADMIN: `Admin Console | Shape N Shades`,
+      INTERIOR_DESIGNERS_MUMBAI: `Interior Designers in Mumbai | Shape N Shades`
     };
     document.title = titles[currentView] || titles.HOME;
 
@@ -53,7 +65,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1).toUpperCase();
-      const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT', 'ADMIN'];
+      const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT', 'ADMIN', 'INTERIOR_DESIGNERS_MUMBAI'];
       if (validViews.includes(hash as ViewState)) {
         setCurrentView(hash as ViewState);
       }
@@ -116,6 +128,7 @@ const App: React.FC = () => {
       case 'ABOUT': return <About setIsDarkMode={setIsDarkMode} />;
       case 'CONTACT': return <Contact setIsDarkMode={setIsDarkMode} />;
       case 'ADMIN': return <Admin setIsDarkMode={setIsDarkMode} />;
+      case 'INTERIOR_DESIGNERS_MUMBAI': return <MumbaiSEO setIsDarkMode={setIsDarkMode} />;
       default: return <Home setIsDarkMode={setIsDarkMode} />;
     }
   };
