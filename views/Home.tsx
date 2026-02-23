@@ -30,10 +30,11 @@ const VideoSlide: React.FC<{ url: string; onVideoError: () => void }> = ({ url, 
         <source src={url} type="video/mp4" />
       </video>
       <div className={`absolute inset-0 bg-black/30 transition-opacity duration-1000 ${isReady ? 'opacity-100' : 'opacity-0'}`}></div>
+      <h1 className="sr-only">Luxury Architects & Interior Designers in Bhayandar East, Mumbai</h1>
       <div className={`absolute inset-0 flex items-center justify-center z-10 px-6 transition-all duration-1000 ${isReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif-display text-white text-center leading-tight max-w-5xl drop-shadow-lg">
-          Luxury Architects & Interior Designers<br className="hidden md:block" /> in Bhayandar East, Mumbai
-        </h1>
+        <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
+          Design beyond<br />imagination
+        </h2>
       </div>
     </>
   );
