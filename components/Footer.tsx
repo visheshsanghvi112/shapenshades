@@ -24,7 +24,7 @@ const Footer: React.FC<FooterProps> = ({ isDarkBackground = false, position = 'f
       <div className={contentClasses}>
         <span className="text-xs tracking-widest font-semibold opacity-70 flex flex-col sm:flex-row sm:items-center sm:gap-4">
           <span>© SHAPE N SHADES 2025</span>
-          <a href="/interior-designers-mumbai" className="font-normal opacity-70 hover:opacity-100 transition-opacity mt-1 sm:mt-0 pb-[1px] border-b border-black/20 hover:border-black dark:border-white/20 dark:hover:border-white">
+          <a href="/interior-designers-mumbai" className="hidden sm:inline-block font-normal opacity-70 hover:opacity-100 transition-opacity pb-[1px] border-b border-black/20 hover:border-black dark:border-white/20 dark:hover:border-white">
             Interior Designers in Mumbai
           </a>
         </span>
