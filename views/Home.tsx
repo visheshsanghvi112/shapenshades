@@ -135,12 +135,14 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
       {/* Navigation Arrows - Visible on mobile now */}
       <button
         onClick={prevSlide}
+        aria-label="Previous slide"
         className="absolute left-2 md:left-12 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors z-20"
       >
         <ChevronLeft size={48} strokeWidth={1} />
       </button>
       <button
         onClick={nextSlide}
+        aria-label="Next slide"
         className="absolute right-2 md:right-12 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors z-20"
       >
         <ChevronRight size={48} strokeWidth={1} />
@@ -152,6 +154,7 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           <button
             key={idx}
             onClick={() => setCurrentSlide(idx)}
+            aria-label={`Go to slide ${idx + 1}`}
             className={`w-2 h-2 rounded-full transition-all duration-500 ${idx === currentSlide ? 'bg-white w-8' : 'bg-white/40 hover:bg-white/80'}`}
           />
         ))}

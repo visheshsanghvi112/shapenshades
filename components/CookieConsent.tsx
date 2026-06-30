@@ -101,6 +101,7 @@ const CookieConsent: React.FC = () => {
             onClick={() => setShow(false)}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
             title="Dismiss"
+            aria-label="Dismiss cookie notice"
           >
             <X size={18} />
           </button>

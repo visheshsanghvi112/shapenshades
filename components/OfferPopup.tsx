@@ -88,6 +88,7 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
         {/* Close Button */}
         <button
           onClick={handleClose}
+          aria-label="Close offer popup"
           className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
           <X size={24} strokeWidth={1.5} />
@@ -97,7 +98,7 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
           <>
             {/* Header */}
             <div className="mb-8">
-              <p className="text-xs font-bold tracking-[0.2em] uppercase text-red-500 mb-2">
+              <p className="text-xs font-bold tracking-[0.2em] uppercase text-red-700 mb-2">
                 Limited Time Offer
               </p>
               <h2 className="text-3xl md:text-4xl font-serif-display text-black mb-2">
@@ -168,7 +169,7 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
             </form>
 
             {/* Privacy Note */}
-            <p className="text-xs text-gray-400 text-center mt-6">
+            <p className="text-xs text-gray-600 text-center mt-6">
               We respect your privacy. No spam, ever.
             </p>
           </>

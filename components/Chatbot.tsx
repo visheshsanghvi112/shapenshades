@@ -309,6 +309,7 @@ const Chatbot: React.FC = () => {
 
             <button
               onClick={handleToggle}
+              aria-label="Close chat window"
               className="relative z-10 p-1.5 hover:bg-white/10 rounded-lg transition-colors"
             >
               <X className="w-4 h-4 text-gray-300 hover:text-white transition-colors" />
@@ -400,6 +401,7 @@ const Chatbot: React.FC = () => {
             <button
               onClick={handleSend}
               disabled={!input.trim()}
+              aria-label="Send message"
               className={`p-2.5 rounded-xl shrink-0 transition-all duration-200 ${input.trim()
                 ? 'bg-gradient-to-br from-gray-900 to-black text-white shadow-md hover:shadow-lg hover:scale-105'
                 : 'bg-gray-100 text-gray-300 cursor-not-allowed'
