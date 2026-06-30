@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { ViewProps } from '../types';
-import { db } from '../src/firebase';
+import { db, isFirebaseConfigured } from '../src/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { trackContactSubmission } from '../src/analytics';
 import emailjs from '@emailjs/browser';
@@ -24,12 +24,14 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
     if (!formData.name || !formData.email) return;
     setStatus('sending');
     try {
-      // 1. Save to Firebase (Existing logic)
-      await addDoc(collection(db, 'contactSubmissions'), {
-        ...formData,
-        createdAt: serverTimestamp(),
-        source: 'contact_page',
-      });
+      // 1. Save to Firebase (if configured)
+      if (isFirebaseConfigured) {
+        await addDoc(collection(db, 'contactSubmissions'), {
+          ...formData,
+          createdAt: serverTimestamp(),
+          source: 'contact_page',
+        });
+      }
 
       // 2. Send Email via EmailJS (New logic)
       // We pass the formData object which matches the keys in the EmailJS template
@@ -62,6 +64,9 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
       {/* Header Statement */}
       <div className="max-w-5xl mx-auto w-full mb-20 text-center animate-fade-in-up">
+        {/* H1 with location keyword — every page must have exactly one H1.
+            Source: https://developers.google.com/search/docs/fundamentals/seo-starter-guide */}
+        <h1 className="sr-only">Contact Shape N Shades – Architecture &amp; Interior Design Consultations in Mumbai</h1>
         <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif-display leading-tight text-black mb-6">
           Start a conversation about <br />
           <span className="italic text-gray-500">your new space.</span>
@@ -75,10 +80,13 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         <div className="flex flex-col justify-between space-y-12">
           <div>
             <h3 className="text-sm font-bold tracking-[0.2em] uppercase text-gray-400 mb-8">Studio</h3>
+            {/* NAP must match schema in index.html exactly.
+                Schema has: Bhayandar East, addressRegion: Maharashtra, addressCountry: IN
+                Source: https://developers.google.com/search/docs/appearance/structured-data/local-business */}
             <address className="not-italic text-xl md:text-2xl font-light leading-relaxed text-gray-800">
               Shape N Shades <br />
               705, Prathvi Sadan, B.P. Road,<br />
-              Bhayandar East, Thane<br />
+              Bhayandar East, Mumbai<br />
               Maharashtra 401105
             </address>
           </div>

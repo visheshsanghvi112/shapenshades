@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Menu as MenuIcon } from 'lucide-react';
-import { ViewState } from './types';
 import { FIRM_NAME } from './constants';
 import { trackPageView } from './src/analytics';
 import Menu from './components/Menu';
@@ -16,148 +16,197 @@ import Admin from './views/Admin';
 import MumbaiSEO from './views/MumbaiSEO';
 import { Analytics } from '@vercel/analytics/react';
 
-const App: React.FC = () => {
-  // Initialize from URL hash
-  const getInitialView = (): ViewState => {
-    if (window.location.pathname === '/interior-designers-mumbai' || window.location.pathname === '/interior-designers-mumbai/') {
-      return 'INTERIOR_DESIGNERS_MUMBAI';
-    }
-    const hash = window.location.hash.slice(1).toUpperCase();
-    const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT', 'ADMIN', 'INTERIOR_DESIGNERS_MUMBAI'];
-    return validViews.includes(hash as ViewState) ? (hash as ViewState) : 'HOME';
+// ─── Per-route SEO metadata ────────────────────────────────────────────────
+// Source: https://developers.google.com/search/docs/crawling-indexing/valid-page-metadata
+// BreadcrumbList per route
+// Source: https://developers.google.com/search/docs/appearance/structured-data/breadcrumb
+interface BreadcrumbItem { name: string; item: string; }
+const PAGE_BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
+  '/': [{ name: 'Home', item: 'https://shapenshades.com/' }],
+  '/projects': [
+    { name: 'Home', item: 'https://shapenshades.com/' },
+    { name: 'Projects', item: 'https://shapenshades.com/projects' },
+  ],
+  '/about': [
+    { name: 'Home', item: 'https://shapenshades.com/' },
+    { name: 'About', item: 'https://shapenshades.com/about' },
+  ],
+  '/contact': [
+    { name: 'Home', item: 'https://shapenshades.com/' },
+    { name: 'Contact', item: 'https://shapenshades.com/contact' },
+  ],
+  '/interior-designers-mumbai': [
+    { name: 'Home', item: 'https://shapenshades.com/' },
+    { name: 'Interior Designers Mumbai', item: 'https://shapenshades.com/interior-designers-mumbai' },
+  ],
+};
+
+const PAGE_META: Record<string, { title: string; description: string; canonical: string }> = {
+  '/': {
+    title: 'Shape N Shades – Luxury Architecture & Interior Design Firm in Bhayandar East, Mumbai',
+    description:
+      'Shape N Shades is a luxury architecture and interior design firm in Bhayandar East, Mumbai. We specialize in premium residential villas, modern workspaces, and bespoke interior projects across Mumbai.',
+    canonical: 'https://shapenshades.com/',
+  },
+  '/projects': {
+    title: 'Our Portfolio – Architecture & Interior Design Projects | Shape N Shades',
+    description:
+      'Explore our portfolio of luxury residential, commercial, and architectural design projects by Shape N Shades across Mumbai, Thane, Bandra, Nashik, Delhi and beyond.',
+    canonical: 'https://shapenshades.com/projects',
+  },
+  '/about': {
+    title: 'About Shape N Shades – Architecture Studio Founded by Ar. Sohan Suthar | Mumbai',
+    description:
+      'Learn about Shape N Shades, a premier architecture and interior design studio founded by Ar. Sohan Suthar in Bhayandar East, Mumbai. Specializing in luxury residential and commercial spaces.',
+    canonical: 'https://shapenshades.com/about',
+  },
+  '/contact': {
+    title: 'Contact Us – Book a Design Consultation | Shape N Shades, Mumbai',
+    description:
+      'Get in touch with Shape N Shades for your next architecture or interior design project in Mumbai. Visit our studio at Bhayandar East or call +91 80972 41237.',
+    canonical: 'https://shapenshades.com/contact',
+  },
+  '/interior-designers-mumbai': {
+    title: 'Interior Designers in Mumbai – Premium Design Services | Shape N Shades',
+    description:
+      'Shape N Shades is a premium architecture and interior design studio offering luxury residential, villa, and commercial interior solutions across Mumbai. Contact us for a consultation.',
+    canonical: 'https://shapenshades.com/interior-designers-mumbai',
+  },
+};
+
+// ─── Helper: inject dynamic SEO meta into <head> ──────────────────────────
+// Google supports dynamically generated metadata from React SPAs.
+// Source: https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics
+function injectBreadcrumb(pathname: string): void {
+  const crumbs = PAGE_BREADCRUMBS[pathname] ?? PAGE_BREADCRUMBS['/'];
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((c, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: c.name,
+      item: c.item,
+    })),
   };
+  let el = document.getElementById('schema-breadcrumb-global') as HTMLScriptElement | null;
+  if (!el) {
+    el = document.createElement('script');
+    el.id = 'schema-breadcrumb-global';
+    el.type = 'application/ld+json';
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(schema);
+}
 
-  const [currentView, setCurrentView] = useState<ViewState>(getInitialView());
+function updateDocumentMeta(pathname: string): void {
+  const meta = PAGE_META[pathname] ?? PAGE_META['/'];
+
+  // Title
+  document.title = meta.title;
+
+  // Meta description
+  const desc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+  if (desc) desc.content = meta.description;
+
+  // Canonical — must be an absolute URL per Google spec
+  let canonicalEl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (!canonicalEl) {
+    canonicalEl = document.createElement('link');
+    canonicalEl.rel = 'canonical';
+    document.head.appendChild(canonicalEl);
+  }
+  canonicalEl.href = meta.canonical;
+
+  // Inject BreadcrumbList for this route
+  injectBreadcrumb(pathname);
+
+  // Open Graph — update so social crawlers see the correct per-page data
+  const ogTitle = document.querySelector<HTMLMetaElement>('meta[property="og:title"]');
+  if (ogTitle) ogTitle.content = meta.title;
+
+  const ogDesc = document.querySelector<HTMLMetaElement>('meta[property="og:description"]');
+  if (ogDesc) ogDesc.content = meta.description;
+
+  const ogUrl = document.querySelector<HTMLMetaElement>('meta[property="og:url"]');
+  if (ogUrl) ogUrl.content = meta.canonical;
+
+  // Twitter Cards
+  const twTitle = document.querySelector<HTMLMetaElement>('meta[property="twitter:title"]');
+  if (twTitle) twTitle.content = meta.title;
+
+  const twDesc = document.querySelector<HTMLMetaElement>('meta[property="twitter:description"]');
+  if (twDesc) twDesc.content = meta.description;
+
+  const twUrl = document.querySelector<HTMLMetaElement>('meta[property="twitter:url"]');
+  if (twUrl) twUrl.content = meta.canonical;
+}
+
+// ─── Route-aware inner shell (must be inside <BrowserRouter>) ─────────────
+const AppShell: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false); // Controls Header/Footer color
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isOfferPopupOpen, setIsOfferPopupOpen] = useState(false);
-
-  // Smart Header Logic
   const [showHeader, setShowHeader] = useState(true);
   const lastScrollY = useRef(0);
 
-  // Update URL and Title when view changes
+  const isHome = location.pathname === '/';
+
+  // Update all meta tags whenever the route changes
   useEffect(() => {
-    if (currentView === 'INTERIOR_DESIGNERS_MUMBAI') {
-      window.history.replaceState(null, '', '/interior-designers-mumbai');
-    } else {
-      if (window.location.pathname !== '/') {
-        window.history.replaceState(null, '', '/');
-      }
-      window.location.hash = currentView.toLowerCase();
-    }
-    window.scrollTo(0, 0); // Scroll to top on page change
+    updateDocumentMeta(location.pathname);
+    trackPageView(location.pathname);
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
-    // Dynamic SEO Titles
-    const titles: Record<ViewState, string> = {
-      HOME: `Shape N Shades \u2013 Luxury Architecture & Interior Design Firm in Bhayandar East, Mumbai`,
-      PROJECTS: `Projects | Shape N Shades`,
-      ABOUT: `About Us | Shape N Shades`,
-      CONTACT: `Contact | Shape N Shades`,
-      ADMIN: `Admin Console | Shape N Shades`,
-      INTERIOR_DESIGNERS_MUMBAI: `Interior Designers in Mumbai | Shape N Shades`
-    };
-    document.title = titles[currentView] || titles.HOME;
-
-    // Dynamic SEO Meta Descriptions
-    const descriptions: Record<ViewState, string> = {
-      HOME: `Shape N Shades is a luxury architecture and interior design firm in Bhayandar East, Mumbai. We specialize in premium residential villas, modern workspaces, and bespoke interior projects across Mumbai.`,
-      PROJECTS: `Explore our portfolio of luxury residential, commercial, and villa architectural projects by Shape N Shades in Mumbai and beyond.`,
-      ABOUT: `Learn about Shape N Shades, a premier architecture and interior design studio founded by Ar. Sohan Suthar in Mumbai, specializing in luxury spaces.`,
-      CONTACT: `Get in touch with Shape N Shades for your next architecture or interior design project in Mumbai. We turn your vision into reality.`,
-      ADMIN: `Admin Console for Shape N Shades.`,
-      INTERIOR_DESIGNERS_MUMBAI: `Shape N Shades is a premium architecture and interior design studio offering luxury residential, villa, and commercial interior solutions across Mumbai.`
-    };
-    const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) {
-      metaDescription.setAttribute('content', descriptions[currentView] || descriptions.HOME);
-    }
-
-    trackPageView(currentView);
-  }, [currentView]);
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.slice(1).toUpperCase();
-      const validViews: ViewState[] = ['HOME', 'PROJECTS', 'ABOUT', 'CONTACT', 'ADMIN', 'INTERIOR_DESIGNERS_MUMBAI'];
-      if (validViews.includes(hash as ViewState)) {
-        setCurrentView(hash as ViewState);
-      }
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  // Show offer popup logic
+  // Offer popup logic
   useEffect(() => {
     const hasSubmitted = localStorage.getItem('offerFormSubmitted');
     const closeCount = parseInt(localStorage.getItem('offerCloseCount') || '0');
-
-    // Show popup if:
-    // 1. User hasn't submitted the form AND
-    // 2. They've closed it less than 2 times (show max 2 times)
     if (!hasSubmitted && closeCount < 2) {
       setIsOfferPopupOpen(true);
     }
   }, []);
 
+  // Smart header hide-on-scroll
   useEffect(() => {
     const handleScroll = () => {
-      // On HOME view (which is typically fixed height), always keep header visible
-      if (currentView === 'HOME') {
+      if (isHome) {
         setShowHeader(true);
         return;
       }
-
       const currentScrollY = window.scrollY;
-
-      // Always show at the very top to avoid getting stuck
       if (currentScrollY < 50) {
         setShowHeader(true);
         lastScrollY.current = currentScrollY;
         return;
       }
-
-      // Determine scroll direction
       if (currentScrollY > lastScrollY.current + 10) {
-        // Scrolling Down -> Hide
         setShowHeader(false);
       } else if (currentScrollY < lastScrollY.current - 10) {
-        // Scrolling Up -> Show
         setShowHeader(true);
       }
-
       lastScrollY.current = currentScrollY;
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [currentView]);
+  }, [isHome]);
 
-  const renderView = () => {
-    switch (currentView) {
-      case 'HOME': return <Home setIsDarkMode={setIsDarkMode} />;
-      case 'PROJECTS': return <Projects setIsDarkMode={setIsDarkMode} />;
-      case 'ABOUT': return <About setIsDarkMode={setIsDarkMode} />;
-      case 'CONTACT': return <Contact setIsDarkMode={setIsDarkMode} />;
-      case 'ADMIN': return <Admin setIsDarkMode={setIsDarkMode} />;
-      case 'INTERIOR_DESIGNERS_MUMBAI': return <MumbaiSEO setIsDarkMode={setIsDarkMode} />;
-      default: return <Home setIsDarkMode={setIsDarkMode} />;
-    }
-  };
-
+  const isAdmin = location.pathname === '/admin';
   const headerTextColor = isDarkMode ? 'text-white' : 'text-black';
 
   return (
     <div className="min-h-screen relative font-sans selection:bg-black selection:text-white flex flex-col">
-      {/* Header */}
+      {/* ── Header ── */}
       <header
         className={`fixed top-0 left-0 w-full z-40 p-6 md:p-8 flex justify-between items-center transition-transform duration-500 ease-in-out ${headerTextColor} ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}
       >
         <div
-          className={`cursor-pointer z-50 pointer-events-auto ${currentView === 'ADMIN' ? 'opacity-0 pointer-events-none' : ''}`}
-          onClick={() => setCurrentView('HOME')}
+          className={`cursor-pointer z-50 pointer-events-auto ${isAdmin ? 'opacity-0 pointer-events-none' : ''}`}
+          onClick={() => navigate('/')}
         >
           <img
             src="/SNS-logo-2.2.png"
@@ -169,57 +218,74 @@ const App: React.FC = () => {
         <button
           onClick={() => {
             setIsMenuOpen(true);
-            setIsOfferPopupOpen(false); // Close popup when opening menu
+            setIsOfferPopupOpen(false);
           }}
           className="p-2 hover:opacity-70 transition-opacity z-50 pointer-events-auto"
+          aria-label="Open navigation menu"
         >
           <MenuIcon size={28} strokeWidth={1.5} />
         </button>
       </header>
 
-      {/* Main View Area */}
-      {/* For Home (which is fixed/h-screen), we might not want flex-grow, but for others we do */}
+      {/* ── Main content ── */}
       <main className="w-full flex-grow">
-        {renderView()}
+        <Routes>
+          {/* Each route gets its own crawlable URL.
+              Per Google: use History API (pushState) so Googlebot can crawl each URL.
+              Source: https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics */}
+          <Route path="/" element={<Home setIsDarkMode={setIsDarkMode} />} />
+          <Route path="/projects" element={<Projects setIsDarkMode={setIsDarkMode} />} />
+          <Route path="/about" element={<About setIsDarkMode={setIsDarkMode} />} />
+          <Route path="/contact" element={<Contact setIsDarkMode={setIsDarkMode} />} />
+          <Route path="/interior-designers-mumbai" element={<MumbaiSEO setIsDarkMode={setIsDarkMode} />} />
+          <Route path="/admin" element={<Admin setIsDarkMode={setIsDarkMode} />} />
+          {/* Catch-all: redirect unknown paths to home */}
+          <Route path="*" element={<Home setIsDarkMode={setIsDarkMode} />} />
+        </Routes>
       </main>
 
-      {/* Footer */}
-      {/* Fixed on Home view, Static on others */}
+      {/* ── Footer ── */}
       <Footer
         isDarkBackground={isDarkMode}
-        position={currentView === 'HOME' ? 'fixed' : 'static'}
+        position={isHome ? 'fixed' : 'static'}
       />
 
-      {/* Full Screen Menu Overlay */}
+      {/* ── Full-screen menu overlay ── */}
       <Menu
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
-        currentView={currentView}
-        onNavigate={(view) => {
-          setCurrentView(view);
-          // Default reset on nav
-          if (view !== 'HOME') setIsDarkMode(false);
-          // Ensure header shows immediately on nav
+        currentPath={location.pathname}
+        onNavigate={(path) => {
+          navigate(path);
+          setIsDarkMode(false);
           setShowHeader(true);
+          setIsMenuOpen(false);
         }}
       />
 
-      {/* Offer Popup */}
+      {/* ── Offer popup ── */}
       <OfferPopup
         isOpen={isOfferPopupOpen && !isMenuOpen}
         onClose={() => setIsOfferPopupOpen(false)}
       />
 
-      {/* Cookie Consent */}
+      {/* ── Cookie consent ── */}
       <CookieConsent />
 
-      {/* Chatbot */}
+      {/* ── Chatbot ── */}
       <Chatbot />
 
-      {/* Vercel Analytics */}
+      {/* ── Vercel Analytics ── */}
       <Analytics />
     </div>
   );
 };
+
+// ─── Root export — wraps everything in BrowserRouter ──────────────────────
+const App: React.FC = () => (
+  <BrowserRouter>
+    <AppShell />
+  </BrowserRouter>
+);
 
 export default App;

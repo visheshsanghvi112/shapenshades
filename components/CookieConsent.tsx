@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { initAnalytics, db } from '../src/firebase';
+import { initAnalytics, db, isFirebaseConfigured } from '../src/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const COOKIE_CONSENT_KEY = 'shapes_shades_cookie_consent';
@@ -34,6 +34,7 @@ const CookieConsent: React.FC = () => {
   }, []);
 
   const logConsentToFirestore = async (accepted: boolean) => {
+    if (!isFirebaseConfigured) return;
     try {
       await addDoc(collection(db, 'cookieConsents'), {
         analytics: accepted,

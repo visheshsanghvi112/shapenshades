@@ -5,7 +5,7 @@ export const FOUNDED_YEAR = 2019;
 
 // Array of video backgrounds for the Home carousel
 export const HERO_VIDEOS = [
-  "/videos/18531410-uhd_3840_2160_60fps.mp4"
+  "https://res.cloudinary.com/dwfcnnt0x/video/upload/f_auto,q_auto,vc_auto/v1782730192/18531410-uhd_3840_2160_60fps_yufzok.mp4"
 ];
 
 export const ABOUT_TEXT = [

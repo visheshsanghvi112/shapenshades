@@ -39,8 +39,9 @@
     content="Shape N Shades is a luxury architecture and interior design firm in Bhayandar East, Mumbai. We specialize in premium residential villas, modern workspaces, and bespoke interior projects across Mumbai." />
   <meta property="twitter:image" content="https://shapenshades.com/SNS-logo-2.2.png" />
 
-  <!-- Canonical URL -->
-  <link rel="canonical" href="https://shapenshades.com/" />
+  <!-- Canonical URL is injected dynamically per-route by App.tsx
+       to ensure each crawlable path has its own unique canonical.
+       Source: https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls -->
 
   <!-- Favicon / App Icons -->
   <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -57,49 +58,133 @@
   <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
   <link
     href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Manrope:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
-    rel="stylesheet" />
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'" />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Manrope:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+      rel="stylesheet" />
+  </noscript>
 
-  <!-- Structured Data -->
+  <!-- Structured Data —————————————————————————————————————————————————
+       Schema validated against Google Search Central LocalBusiness documentation.
+       Source: https://developers.google.com/search/docs/appearance/structured-data/local-business
+       Rules:
+         - Schema must reflect VISIBLE page content only.
+         - areaServed covers all actual project locations.
+         - openingHoursSpecification added for Knowledge Panel hours display.
+       ——————————————————————————————————————————————————————————————————— -->
   <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      "name": "Shape N Shades",
-      "alternateName": ["shapenshades", "Shape & Shades", "Shape and Shades", "Shapes n Shades", "Shapes and Shades", "Shape n Shade"],
-      "description": "Full-service architecture, interior design, and construction consulting firm.",
-      "url": "https://shapenshades.com/",
-      "logo": "https://shapenshades.com/SNS-logo-2.2.png",
-      "foundingDate": "2019-09-09",
-      "founder": [
-        { "@type": "Person", "name": "Sohan Suthar" }
-      ],
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "705, Prathvi Sadan, B.P. Road",
-        "addressLocality": "Bhayandar East",
-        "addressRegion": "Maharashtra",
-        "postalCode": "401105",
-        "addressCountry": "IN"
-      },
-      "geo": {
-        "@type": "GeoCoordinates",
-        "latitude": "19.2952",
-        "longitude": "72.8544"
-      },
-      "telephone": "+918097241237",
-      "email": "design.shapenshades@gmail.com",
-      "priceRange": "₹₹₹",
-      "sameAs": [
-        "https://www.instagram.com/shape.n.shades.design",
-        "https://www.facebook.com/shapenshades",
-        "https://www.linkedin.com/company/shape-n-shades"
-      ],
-      "areaServed": ["Bhayandar East", "Mira-Bhayandar", "Mumbai"],
-      "serviceType": ["Architecture", "Interior Design", "Construction Administration"]
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Shape N Shades",
+    "alternateName": [
+      "shapenshades",
+      "Shape & Shades",
+      "Shape and Shades",
+      "Shapes n Shades",
+      "Shape n Shade"
+    ],
+    "description": "Shape N Shades is a full-service architecture, interior design, and construction consulting firm founded in 2019 by Ar. Sohan Suthar, based in Bhayandar East, Mumbai. We specialize in premium residential villas, luxury interiors, commercial workspaces, and architectural design projects across Mumbai, Thane, and beyond.",
+    "url": "https://shapenshades.com/",
+    "logo": "https://shapenshades.com/SNS-logo-2.2.png",
+    "image": "https://shapenshades.com/SNS-logo-2.2.png",
+    "foundingDate": "2019-09-09",
+    "founder": [
+      {
+        "@type": "Person",
+        "name": "Sohan Suthar",
+        "jobTitle": "Principal Architect & Founder"
+      }
+    ],
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "705, Prathvi Sadan, B.P. Road",
+      "addressLocality": "Bhayandar East",
+      "addressRegion": "Maharashtra",
+      "postalCode": "401105",
+      "addressCountry": "IN"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": "19.2952",
+      "longitude": "72.8544"
+    },
+    "telephone": "+918097241237",
+    "email": "design.shapenshades@gmail.com",
+    "priceRange": "₹₹₹",
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        "opens": "10:00",
+        "closes": "19:00"
+      }
+    ],
+    "sameAs": [
+      "https://www.instagram.com/shape.n.shades.design",
+      "https://www.facebook.com/shapenshades",
+      "https://www.linkedin.com/company/shape-n-shades",
+      "https://www.youtube.com/@shapeNshades_designs"
+    ],
+    "areaServed": [
+      "Bhayandar East",
+      "Mira-Bhayandar",
+      "Mumbai",
+      "Thane",
+      "Bandra",
+      "Matunga",
+      "Ghatkopar",
+      "Kandivali",
+      "Nashik",
+      "Delhi",
+      "Ratnagiri",
+      "Kolhapur"
+    ],
+    "hasOfferCatalog": {
+      "@type": "OfferCatalog",
+      "name": "Design Services",
+      "itemListElement": [
+        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Architecture" } },
+        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Interior Design" } },
+        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Landscape Design" } },
+        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Construction Administration" } }
+      ]
     }
-    </script>
+  }
+  </script>
+
+  <!-- WebSite schema — enables potential sitelinks search box
+       Source: https://developers.google.com/search/docs/appearance/structured-data/sitelinks-searchbox -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Shape N Shades",
+    "url": "https://shapenshades.com/"
+  }
+  </script>
 
   <style>
+    /* font-display: swap ensures body text is readable immediately while
+       web fonts are fetched, preventing FOIT (Flash of Invisible Text)
+       which negatively impacts LCP and CLS.
+       Source: https://web.dev/articles/font-best-practices */
+    @font-face {
+      font-family: 'Manrope';
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Playfair Display';
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Cinzel';
+      font-display: swap;
+    }
+
     body {
       font-family: 'Manrope', sans-serif;
       background-color: #f8f8f8;

@@ -129,10 +129,14 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
 
       {/* 1. Manifesto / Hero Statement */}
       <div className="px-6 md:px-12 lg:px-24 mb-24 animate-fade-in-up">
-        <h1 className="text-4xl md:text-6xl lg:text-8xl font-serif-display leading-[1.1] text-black mb-8">
+        {/* H1 with primary keyword for Google.
+            The visible tagline below is H2 for heading hierarchy.
+            Source: https://developers.google.com/search/docs/fundamentals/seo-starter-guide */}
+        <h1 className="sr-only">About Shape N Shades – Architecture &amp; Interior Design Studio in Bhayandar East, Mumbai</h1>
+        <h2 className="text-4xl md:text-6xl lg:text-8xl font-serif-display leading-[1.1] text-black mb-8">
           We don't just build spaces.<br />
           <span className="italic text-gray-400">We curate experiences.</span>
-        </h1>
+        </h2>
         <div className="w-full h-px bg-gray-200 mt-12"></div>
       </div>
 
@@ -223,6 +227,8 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         <div
           className="absolute inset-0 bg-fixed bg-cover bg-center"
           style={{ backgroundImage: "url('https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1920&q=80&auto=format&fit=crop&fm=webp')" }}
+          role="img"
+          aria-label="Luxury interior design project by Shape N Shades, Mumbai"
         />
         <div className="absolute inset-0 bg-black/50" />
         <div className="relative z-10 flex items-center justify-center h-full px-6">
@@ -247,8 +253,10 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             <div className="w-full aspect-[4/5] bg-gray-100 overflow-hidden relative">
               <img
                 src="/director1.png"
-                alt="Ar. Sohan Suthar"
+                alt="Ar. Sohan Suthar – Principal Architect and Founder of Shape N Shades, Bhayandar East, Mumbai"
                 className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+                loading="lazy"
+                decoding="async"
               />
               <div className="absolute inset-0 border-[1px] border-transparent group-hover:border-white/20 m-4 transition-all duration-500"></div>
             </div>

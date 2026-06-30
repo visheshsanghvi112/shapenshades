@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { db } from '../src/firebase';
+import { db, isFirebaseConfigured } from '../src/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { trackOfferSubmission } from '../src/analytics';
 import emailjs from '@emailjs/browser';
@@ -33,14 +33,16 @@ const OfferPopup: React.FC<OfferPopupProps> = ({ isOpen, onClose }) => {
     setSubmitting(true);
     setSubmitError(false);
     try {
-      // 1. Save to Firebase (Existing logic)
-      await addDoc(collection(db, 'offerSubmissions'), {
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        createdAt: serverTimestamp(),
-        source: 'offer_popup',
-      });
+      // 1. Save to Firebase (if configured)
+      if (isFirebaseConfigured) {
+        await addDoc(collection(db, 'offerSubmissions'), {
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          createdAt: serverTimestamp(),
+          source: 'offer_popup',
+        });
+      }
 
       // 2. Send Email via EmailJS (New logic)
       await emailjs.send(

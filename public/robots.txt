@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin
 
+# Google Search Central Sitemap Location
 Sitemap: https://shapenshades.com/sitemap.xml

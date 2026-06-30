@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { HERO_SLIDES, HERO_VIDEOS } from '../constants';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ViewProps } from '../types';
+import { useNavigate, Link } from 'react-router-dom';
 
 // Preload all hero images on module load so they're cached before first render
 const preloadedImages: HTMLImageElement[] = [];
@@ -23,6 +24,7 @@ const VideoSlide: React.FC<{ url: string; onVideoError: () => void }> = ({ url, 
         loop
         playsInline
         preload="auto"
+        poster="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1920&q=80&auto=format&fit=crop"
         onCanPlay={() => setIsReady(true)}
         onError={onVideoError}
         className={`absolute min-w-full min-h-full object-cover transition-opacity duration-1000 ${isReady ? 'opacity-100' : 'opacity-0'}`}
@@ -30,17 +32,20 @@ const VideoSlide: React.FC<{ url: string; onVideoError: () => void }> = ({ url, 
         <source src={url} type="video/mp4" />
       </video>
       <div className={`absolute inset-0 bg-black/30 transition-opacity duration-1000 ${isReady ? 'opacity-100' : 'opacity-0'}`}></div>
-      <h1 className="sr-only">Luxury Architects & Interior Designers in Bhayandar East, Mumbai</h1>
+      {/* H1 is visually rendered as an overlay — Google needs to see rendered H1 content.
+          Source: https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics */}
       <div className={`absolute inset-0 flex items-center justify-center z-10 px-6 transition-all duration-1000 ${isReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
-          Design beyond<br />imagination
-        </h2>
+        <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight drop-shadow-2xl">
+          Luxury Architects &amp; Interior Designers<br />
+          <span className="font-light italic opacity-90">Bhayandar East, Mumbai</span>
+        </h1>
       </div>
     </>
   );
 };
 
 const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
+  const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -91,13 +96,11 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           <VideoSlide url={activeSlide.url} onVideoError={handleVideoError} />
         ) : (
           <>
-            <div
-              className="absolute inset-0 w-full h-full animate-fade-in cursor-pointer"
-              onClick={() => { window.location.hash = 'projects'; }}
-            >
+          <Link to="/projects" className="absolute inset-0 w-full h-full block">
+            <div className="absolute inset-0 w-full h-full animate-fade-in">
               <img
                 src={activeSlide.url}
-                alt="Shape N Shades | Architecture & Interior Design"
+                alt="Shape N Shades | Architecture & Interior Design in Mumbai"
                 className="w-full h-full object-cover"
                 loading="eager"
                 decoding="async"
@@ -105,15 +108,26 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
               />
             </div>
             {/* Dark overlay for images */}
-            <div className="absolute inset-0 bg-black/30 cursor-pointer" onClick={() => { window.location.hash = 'projects'; }}></div>
-            {/* Text overlay for images */}
-            {activeSlide.tagline && (
-              <div className="absolute inset-0 flex items-center justify-center z-10 px-6 cursor-pointer" onClick={() => { window.location.hash = 'projects'; }}>
-                <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
-                  {activeSlide.tagline}
-                </h2>
-              </div>
-            )}
+            <div className="absolute inset-0 bg-black/30"></div>
+            {/* H1 always rendered in DOM so Googlebot can read it.
+                On image slides, we show it as a visible overlay with location keyword.
+                Source: https://developers.google.com/search/docs/fundamentals/seo-starter-guide */}
+            <div className="absolute inset-0 flex items-center justify-center z-10 px-6">
+              {activeSlide.tagline ? (
+                <>
+                  <h1 className="sr-only">Luxury Architects &amp; Interior Designers in Bhayandar East, Mumbai</h1>
+                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
+                    {activeSlide.tagline}
+                  </h2>
+                </>
+              ) : (
+                <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight drop-shadow-2xl">
+                  Luxury Architects &amp; Interior Designers<br />
+                  <span className="font-light italic opacity-90">Bhayandar East, Mumbai</span>
+                </h1>
+              )}
+            </div>
+          </Link>
           </>
         )}
       </div>

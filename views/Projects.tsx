@@ -686,8 +686,8 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         {/* Filters */}
         <div className="space-y-8 py-4 px-2">
           {/* Row 1: Type Filters */}
-          <div className="flex items-center justify-center gap-2">
-            <div className="flex overflow-x-auto no-scrollbar justify-center items-center space-x-6 md:space-x-10">
+          <div className="flex justify-start md:justify-center w-full">
+            <div className="flex overflow-x-auto no-scrollbar justify-start md:justify-center items-center space-x-6 md:space-x-10 w-full md:w-auto pb-2">
               {TYPE_FILTERS.map((cat) => (
                 <button
                   key={cat}
@@ -719,7 +719,7 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                   <div className="absolute inset-0">
                     <img
                       src={card.image}
-                      alt={card.label}
+                      alt={`${card.label} interior design service category by Shape N Shades, Mumbai`}
                       onError={(e) => {
                         e.currentTarget.src = FALLBACK_IMAGE; // Use universal fallback
                       }}
@@ -764,8 +764,10 @@ const Projects: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 <img
                   src={project.imageUrl}
                   onError={handleImageError}
-                  alt={project.title}
+                  alt={`${project.title} – ${project.type} ${project.subCategory} project in ${project.location} by Shape N Shades`}
                   className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
+                  loading="lazy"
+                  decoding="async"
                 />
               )}
               {/* Overlay: subtle bottom gradient always, darker on hover */}
