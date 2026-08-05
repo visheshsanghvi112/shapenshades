@@ -1,56 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Sitemap generated for https://shapenshades.com
-  Compliant with Google Search Central sitemap guidelines.
-  Source: https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap
-
-  Rules followed:
-  - Only full, absolute URLs. No fragment (#) identifiers — Google ignores them.
-  - No trailing slashes except for the root URL.
-  - lastmod uses W3C datetime format (YYYY-MM-DD).
-  - priority reflects relative importance within this site (1.0 = highest).
-  - changefreq is a hint only; Google may ignore it.
--->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-
-  <!-- Homepage — highest priority, most frequently updated -->
   <url>
     <loc>https://shapenshades.com/</loc>
-    <lastmod>2026-06-29</lastmod>
+    <lastmod>2026-08-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
-
-  <!-- Projects portfolio page -->
   <url>
     <loc>https://shapenshades.com/projects</loc>
-    <lastmod>2026-06-29</lastmod>
-    <changefreq>monthly</changefreq>
+    <lastmod>2026-08-05</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-
-  <!-- About the studio -->
   <url>
     <loc>https://shapenshades.com/about</loc>
-    <lastmod>2026-06-29</lastmod>
+    <lastmod>2026-08-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-
-  <!-- Contact page -->
   <url>
     <loc>https://shapenshades.com/contact</loc>
-    <lastmod>2026-06-29</lastmod>
+    <lastmod>2026-08-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-
-  <!-- Location landing page — Interior Designers Mumbai -->
   <url>
     <loc>https://shapenshades.com/interior-designers-mumbai</loc>
-    <lastmod>2026-06-29</lastmod>
-    <changefreq>monthly</changefreq>
+    <lastmod>2026-08-05</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-
 </urlset>
