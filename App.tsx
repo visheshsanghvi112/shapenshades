@@ -43,9 +43,9 @@ const PAGE_BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
 
 const PAGE_META: Record<string, { title: string; description: string; canonical: string }> = {
   '/': {
-    title: 'Shape N Shades – Luxury Architecture & Interior Design Firm in Dadar East, Mumbai',
+    title: 'Shape N Shades – Luxury Architecture & Interior Design Firm in Mumbai, Dadar East & Mira Road',
     description:
-      'Shape N Shades is a luxury architecture and interior design firm in Dadar East, Mumbai. We specialize in premium residential villas, modern workspaces, and bespoke interior projects across Mumbai.',
+      'Shape N Shades is a luxury architecture and interior design firm operating across Dadar East, Mira Road, Thane, and Mumbai. We specialize in premium residential villas, modern workspaces, and bespoke interior projects.',
     canonical: 'https://shapenshades.com/',
   },
   '/projects': {
