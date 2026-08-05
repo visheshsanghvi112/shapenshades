@@ -35,10 +35,17 @@ const VideoSlide: React.FC<{ url: string; onVideoError: () => void }> = ({ url, 
       {/* H1 is visually rendered as an overlay — Google needs to see rendered H1 content.
           Source: https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics */}
       <div className={`absolute inset-0 flex items-center justify-center z-10 px-6 transition-all duration-1000 ${isReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight drop-shadow-2xl">
-          Luxury Architects &amp; Interior Designers<br />
-          <span className="font-light italic opacity-90">Bhayandar East, Mumbai</span>
-        </h1>
+        <div className="text-center max-w-4xl mx-auto">
+          <p className="text-xs sm:text-sm font-sans tracking-[0.3em] uppercase text-white/80 font-medium mb-3 md:mb-4 drop-shadow">
+            Architecture &amp; Interior Design Studio
+          </p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif-display text-white leading-snug drop-shadow-2xl font-normal">
+            Luxury Architects &amp; Interior Designers
+          </h1>
+          <p className="text-base sm:text-lg md:text-xl font-light italic text-white/90 tracking-wide mt-3 md:mt-4">
+            Dadar East, Mumbai
+          </p>
+        </div>
       </div>
     </>
   );
@@ -114,17 +121,30 @@ const Home: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 Source: https://developers.google.com/search/docs/fundamentals/seo-starter-guide */}
             <div className="absolute inset-0 flex items-center justify-center z-10 px-6">
               {activeSlide.tagline ? (
-                <>
-                  <h1 className="sr-only">Luxury Architects &amp; Interior Designers in Bhayandar East, Mumbai</h1>
-                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight">
+                <div className="text-center max-w-4xl mx-auto">
+                  <h1 className="sr-only">Luxury Architects &amp; Interior Designers in Dadar East, Mumbai</h1>
+                  <p className="text-xs sm:text-sm font-sans tracking-[0.3em] uppercase text-white/80 font-medium mb-3 md:mb-4 drop-shadow">
+                    Shape N Shades
+                  </p>
+                  <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif-display text-white leading-snug drop-shadow-2xl font-normal">
                     {activeSlide.tagline}
                   </h2>
-                </>
+                  <p className="text-base sm:text-lg md:text-xl font-light italic text-white/90 tracking-wide mt-3 md:mt-4">
+                    Dadar East, Mumbai
+                  </p>
+                </div>
               ) : (
-                <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif-display text-white text-center leading-tight drop-shadow-2xl">
-                  Luxury Architects &amp; Interior Designers<br />
-                  <span className="font-light italic opacity-90">Bhayandar East, Mumbai</span>
-                </h1>
+                <div className="text-center max-w-4xl mx-auto">
+                  <p className="text-xs sm:text-sm font-sans tracking-[0.3em] uppercase text-white/80 font-medium mb-3 md:mb-4 drop-shadow">
+                    Architecture &amp; Interior Design Studio
+                  </p>
+                  <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif-display text-white leading-snug drop-shadow-2xl font-normal">
+                    Luxury Architects &amp; Interior Designers
+                  </h1>
+                  <p className="text-base sm:text-lg md:text-xl font-light italic text-white/90 tracking-wide mt-3 md:mt-4">
+                    Dadar East, Mumbai
+                  </p>
+                </div>
               )}
             </div>
           </Link>

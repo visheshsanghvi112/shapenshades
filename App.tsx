@@ -43,9 +43,9 @@ const PAGE_BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
 
 const PAGE_META: Record<string, { title: string; description: string; canonical: string }> = {
   '/': {
-    title: 'Shape N Shades – Luxury Architecture & Interior Design Firm in Bhayandar East, Mumbai',
+    title: 'Shape N Shades – Luxury Architecture & Interior Design Firm in Dadar East, Mumbai',
     description:
-      'Shape N Shades is a luxury architecture and interior design firm in Bhayandar East, Mumbai. We specialize in premium residential villas, modern workspaces, and bespoke interior projects across Mumbai.',
+      'Shape N Shades is a luxury architecture and interior design firm in Dadar East, Mumbai. We specialize in premium residential villas, modern workspaces, and bespoke interior projects across Mumbai.',
     canonical: 'https://shapenshades.com/',
   },
   '/projects': {
@@ -57,13 +57,13 @@ const PAGE_META: Record<string, { title: string; description: string; canonical:
   '/about': {
     title: 'About Shape N Shades – Architecture Studio Founded by Ar. Sohan Suthar | Mumbai',
     description:
-      'Learn about Shape N Shades, a premier architecture and interior design studio founded by Ar. Sohan Suthar in Bhayandar East, Mumbai. Specializing in luxury residential and commercial spaces.',
+      'Learn about Shape N Shades, a premier architecture and interior design studio founded by Ar. Sohan Suthar in Dadar East, Mumbai. Specializing in luxury residential and commercial spaces.',
     canonical: 'https://shapenshades.com/about',
   },
   '/contact': {
     title: 'Contact Us – Book a Design Consultation | Shape N Shades, Mumbai',
     description:
-      'Get in touch with Shape N Shades for your next architecture or interior design project in Mumbai. Visit our studio at Bhayandar East or call +91 80972 41237.',
+      'Get in touch with Shape N Shades for your next architecture or interior design project in Mumbai. Visit our studio at Dadar East or call +91 80972 41237.',
     canonical: 'https://shapenshades.com/contact',
   },
   '/interior-designers-mumbai': {

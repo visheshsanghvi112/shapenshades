@@ -85,9 +85,10 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
                 Source: https://developers.google.com/search/docs/appearance/structured-data/local-business */}
             <address className="not-italic text-xl md:text-2xl font-light leading-relaxed text-gray-800">
               Shape N Shades <br />
-              705, Prathvi Sadan, B.P. Road,<br />
-              Bhayandar East, Mumbai<br />
-              Maharashtra 401105
+              Shed No 1, Ground Floor,<br />
+              Balaji Building No 2 (Umia Estate),<br />
+              M M G S Marg, Dadar East,<br />
+              Mumbai, Maharashtra 400014
             </address>
           </div>
 
@@ -220,7 +221,7 @@ const Contact: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         <div className="w-full aspect-[16/9] md:aspect-[21/9] border border-gray-100 overflow-hidden">
           <iframe
             title="Shape N Shades Studio Location"
-            src="https://maps.google.com/maps?q=705+Prathvi+Sadan+BP+Road+Bhayandar+East+Thane+401105&t=&z=15&ie=UTF8&iwloc=&output=embed"
+            src="https://maps.google.com/maps?q=Balaji+Building+No+2+Umia+Estate+MMGS+Marg+Dadar+East+Mumbai+400014&t=&z=15&ie=UTF8&iwloc=&output=embed"
             width="100%"
             height="100%"
             style={{ border: 0 }}

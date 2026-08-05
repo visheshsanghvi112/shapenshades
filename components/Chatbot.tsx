@@ -40,7 +40,7 @@ const PREDEFINED_QA: QA[] = [
   {
     question: 'Where is your office located?',
     answer:
-      'Our studio is at 705, Prathvi Sadan, B.P. Road, Bhayandar East, Mumbai, Maharashtra 401105. Feel free to visit us during working hours!',
+      'Our studio is at Shed No 1, Ground Floor, Balaji Building No 2 (Umia Estate), M M G S Marg, Dadar East, Mumbai, Maharashtra 400014. Feel free to visit us during working hours!',
     keywords: ['location', 'address', 'office', 'studio', 'where', 'visit', 'find'],
   },
   {

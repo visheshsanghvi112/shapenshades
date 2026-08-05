@@ -132,7 +132,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
         {/* H1 with primary keyword for Google.
             The visible tagline below is H2 for heading hierarchy.
             Source: https://developers.google.com/search/docs/fundamentals/seo-starter-guide */}
-        <h1 className="sr-only">About Shape N Shades – Architecture &amp; Interior Design Studio in Bhayandar East, Mumbai</h1>
+        <h1 className="sr-only">About Shape N Shades – Architecture &amp; Interior Design Studio in Dadar East, Mumbai</h1>
         <h2 className="text-4xl md:text-6xl lg:text-8xl font-serif-display leading-[1.1] text-black mb-8">
           We don't just build spaces.<br />
           <span className="italic text-gray-400">We curate experiences.</span>
@@ -253,7 +253,7 @@ const About: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             <div className="w-full aspect-[4/5] bg-gray-100 overflow-hidden relative">
               <img
                 src="/director1.png"
-                alt="Ar. Sohan Suthar – Principal Architect and Founder of Shape N Shades, Bhayandar East, Mumbai"
+                alt="Ar. Sohan Suthar – Principal Architect and Founder of Shape N Shades, Dadar East, Mumbai"
                 className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
                 loading="lazy"
                 decoding="async"

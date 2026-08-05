@@ -24,7 +24,7 @@ const FAQ_SCHEMA = {
       name: 'Which areas of Mumbai does Shape N Shades serve?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Shape N Shades is headquartered in Bhayandar East and serves clients across Mumbai, Thane, Bandra, Matunga, Ghatkopar, Kandivali, Mira-Bhayandar, Nashik, and beyond. We travel for the right project — contact us to discuss your location.'
+        text: 'Shape N Shades is headquartered in Dadar East and serves clients across Mumbai, Thane, Bandra, Matunga, Ghatkopar, Kandivali, Mira-Bhayandar, Nashik, and beyond. We travel for the right project — contact us to discuss your location.'
       }
     },
     {
@@ -148,7 +148,7 @@ const MumbaiSEO: React.FC<ViewProps> = ({ setIsDarkMode }) => {
           <ul className="space-y-4 list-disc pl-5">
             <li><strong>Quality Craftsmanship:</strong> Partnering with top vendors to ensure impeccable finishes.</li>
             <li><strong>Timely Delivery:</strong> Structured project management adhering to strict timelines.</li>
-            <li><strong>Strategic Location:</strong> Based in Bhayandar East, we actively serve clients across the Mumbai metropolitan region.</li>
+            <li><strong>Strategic Location:</strong> Based in Dadar East, we actively serve clients across the Mumbai metropolitan region.</li>
           </ul>
         </div>
       </section>
@@ -193,7 +193,7 @@ const MumbaiSEO: React.FC<ViewProps> = ({ setIsDarkMode }) => {
             <Phone size={20} /> +91 80972 41237
           </a>
           <div className="flex items-center justify-center gap-2">
-            <MapPin size={20} /> Bhayandar East, Mumbai
+            <MapPin size={20} /> Dadar East, Mumbai
           </div>
         </div>
         {/* Internal link — use react-router Link so Googlebot crawls it */}
