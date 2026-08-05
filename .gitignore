@@ -38,3 +38,7 @@ Gemini_Generated_Image_*
 
 # But allow specific project videos
 !public/videos/makhija-sns.mp4
+
+# Cloned helper repositories
+claude-seo/
+
